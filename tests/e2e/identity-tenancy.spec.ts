@@ -1,8 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { setDatabaseScope } from "@kordos/db";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import postgres from "postgres";
-import { issuer, startOidcFixture } from "./oidc-fixture.js";
+import {
+  createTestWorkspace,
+  issuer,
+  signIn,
+  startOidcFixture,
+} from "./oidc-fixture.js";
 
 const run = randomUUID();
 const alice = {
@@ -31,21 +36,6 @@ function required(value: string | undefined) {
       "Set both database URLs and the browser origin before testing identity.",
     );
   return value;
-}
-
-async function signIn(page: Page, account: { name: string }, path: string) {
-  await page.goto(path);
-  await expect(page).toHaveURL(/\/sign-in$/);
-  await page.getByRole("button", { name: "Continue to sign in" }).click();
-  await page.getByRole("link", { name: account.name, exact: true }).click();
-}
-
-async function createWorkspace(page: Page, name: string) {
-  await page.getByLabel("Workspace name").fill(name);
-  await page.getByLabel("Timezone").fill("Asia/Kolkata");
-  await page.getByRole("button", { name: "Create workspace" }).click();
-  await expect(page).toHaveURL(/\/w\/[\da-f-]+\/workspace$/);
-  return required(new URL(page.url()).pathname.split("/")[2]);
 }
 
 test("OIDC, invitation redemption, revocation and pooled database tenant isolation", async ({
@@ -87,9 +77,9 @@ test("OIDC, invitation redemption, revocation and pooled database tenant isolati
         caseyPage.getByRole("heading", { name: "Your workspaces" }),
       ).toBeVisible();
     });
-    const a = await createWorkspace(alicePage, "Alice Studio");
+    const a = await createTestWorkspace(alicePage, "Alice Studio");
     createdWorkspaces.push(a);
-    const b = await createWorkspace(boPage, "Bo Studio");
+    const b = await createTestWorkspace(boPage, "Bo Studio");
     createdWorkspaces.push(b);
     const { identity: aliceIdentity } = await (
       await aliceContext.request.get("/api/session")

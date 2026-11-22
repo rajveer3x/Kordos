@@ -4,6 +4,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { z } from "zod";
 import { identityStore } from "./identity.js";
+import { planningStore } from "./planning.js";
 import { foundationJobEffects, foundationJobs } from "./schema.js";
 
 export { setDatabaseScope } from "./identity.js";
@@ -47,9 +48,10 @@ export function connectDatabase(url: string) {
 
   return {
     identity: identityStore(client),
+    planning: planningStore(client),
     async checkReady() {
       await db.execute(sql`
-        SELECT 1 FROM ${foundationJobs}, ${foundationJobEffects}, public.workspaces LIMIT 0
+        SELECT 1 FROM ${foundationJobs}, ${foundationJobEffects}, public.workspaces, public.work_items LIMIT 0
       `);
     },
     async createJob(id: string) {

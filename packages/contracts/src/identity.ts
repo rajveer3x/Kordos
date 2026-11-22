@@ -56,7 +56,10 @@ export const workspaceProjectSchema = z.object({
   id: idSchema,
   name: z.string(),
   description: z.string().nullable(),
+  visibility: z.enum(["restricted", "workspace"]),
+  archived: z.boolean(),
 });
+export type WorkspaceProject = z.infer<typeof workspaceProjectSchema>;
 export const workspaceDetailSchema = z.object({
   workspace: workspaceSummarySchema,
   projects: z.array(workspaceProjectSchema),
@@ -101,7 +104,9 @@ export const identityErrorSchema = z.object({
     "forbidden",
     "last_admin",
     "conflict",
+    "last_lead",
+    "invalid_state",
   ]),
   message: z.string(),
-  current: memberSchema.pick({ role: true, version: true }).optional(),
+  current: z.unknown().optional(),
 });

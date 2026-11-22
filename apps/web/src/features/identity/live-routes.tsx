@@ -20,6 +20,7 @@ import { WorkspaceRoutes } from "../../app";
 import { Brand } from "../../components/brand";
 import { AsyncState, PageHeading } from "../../components/ui";
 import { HealthPage } from "../health/health-page";
+import { PlanningScope } from "../planning/planning-client";
 import { workspacePath } from "../workspace/workspace-model";
 import { JoinWorkspace, SignInPage, WorkspaceChooser } from "./access-pages";
 import { denied, read } from "./api";
@@ -76,7 +77,7 @@ function SessionGate({
       </PublicState>
     );
   }
-  if (session.isError) {
+  if (!session.data) {
     return (
       <PublicState>
         <AsyncState
@@ -136,8 +137,8 @@ function WorkspaceGate({
       </PublicState>
     );
   }
-  if (workspaces.isError) {
-    if (denied(workspaces.error)) return <Navigate to="/sign-in" replace />;
+  if (denied(workspaces.error)) return <Navigate to="/sign-in" replace />;
+  if (!workspaces.data) {
     return (
       <PublicState>
         <AsyncState
@@ -215,8 +216,8 @@ function WorkspaceScope({
       </PublicState>
     );
   }
-  if (scope.isError) {
-    if (denied(scope.error)) return <WorkspaceUnavailable />;
+  if (denied(scope.error)) return <WorkspaceUnavailable />;
+  if (!scope.data) {
     return (
       <PublicState>
         <AsyncState
@@ -235,20 +236,22 @@ function WorkspaceScope({
     .join("")
     .toUpperCase();
   return (
-    <WorkspaceRoutes
-      workspace={{
-        name: workspace.name,
-        member: { name: identity.name, initials },
-        projects: projects.map((project) => ({
-          ...project,
-          description: project.description ?? undefined,
-          signals: [],
-        })),
-      }}
-      workspaces={workspaces}
-      settings={
-        <WorkspaceSettings workspace={workspace} actorId={identity.id} />
-      }
-    />
+    <PlanningScope.Provider value={{ workspace, actorId: identity.id }}>
+      <WorkspaceRoutes
+        workspace={{
+          name: workspace.name,
+          member: { name: identity.name, initials },
+          projects: projects.map((project) => ({
+            ...project,
+            description: project.description ?? undefined,
+            signals: [],
+          })),
+        }}
+        workspaces={workspaces}
+        settings={
+          <WorkspaceSettings workspace={workspace} actorId={identity.id} />
+        }
+      />
+    </PlanningScope.Provider>
   );
 }

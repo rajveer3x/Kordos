@@ -104,7 +104,7 @@ if (config.ENABLE_FOUNDATION_JOBS) {
   );
 }
 
-registerIdentity(app, config, redis, db.identity);
+registerIdentity(app, config, redis, db);
 
 app.addHook("onClose", async () => {
   redis.disconnect();

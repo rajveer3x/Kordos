@@ -1,15 +1,15 @@
 # Delivery tracker
 
-**Current state** — Features 01 through 03 are verified locally, including the frosted-glass interface refresh.
+**Current state** — Features 01 through 04 are verified locally.
 
-**Next ready feature** — [04 · Projects and work items](feature-specs/04-projects-and-work.md). Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
+**Next ready feature** — [05 · Dependencies and forecasts](feature-specs/05-graph-and-forecasts.md). Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
 
 | ID | Feature prompt | Depends on | State | Evidence |
 |---|---|---|---|---|
 | 01 | [Workspace foundation](feature-specs/01-workspace-foundation.md) | — | Done | Clean-checkout and Redis recovery checks passed. See [Feature 01 evidence](#feature-01-evidence). |
 | 02 | [Interface foundation](feature-specs/02-interface-foundation.md) | 01 | Done | Responsive, keyboard, zoom and contrast checks passed. See [Glass refresh evidence](#glass-refresh-evidence). |
 | 03 | [Identity and tenancy](feature-specs/03-identity-and-tenancy.md) | 01, 02 | Done | Invitation concurrency, workspace switching, revocation and runtime role isolation passed with the refreshed interface. See [Feature 03 evidence](#feature-03-evidence). |
-| 04 | [Projects and work items](feature-specs/04-projects-and-work.md) | 03 | Pending | — |
+| 04 | [Projects and work items](feature-specs/04-projects-and-work.md) | 03 | Done | Board edits, private project isolation, archiving and attributed reopening passed. See [Feature 04 evidence](#feature-04-evidence). |
 | 05 | [Dependencies and forecasts](feature-specs/05-graph-and-forecasts.md) | 04 | Pending | — |
 | 06 | [Comments and presence](feature-specs/06-realtime-collaboration.md) | 04 | Pending | — |
 | 07 | [Documents and decision register](feature-specs/07-documents-and-decisions.md) | 04, 06 | Pending | — |
@@ -112,4 +112,19 @@ Verified on 2026-11-23. The refresh covers the workspace shell and project views
 | Populated | [Screenshot](evidence/feature-02/glass-refresh/populated-desktop.png) | [Screenshot](evidence/feature-02/glass-refresh/populated-mobile.png) |
 | Empty | [Screenshot](evidence/feature-02/glass-refresh/empty-desktop.png) | [Screenshot](evidence/feature-02/glass-refresh/empty-mobile.png) |
 
-The refresh has no outstanding local acceptance checks. Live Auth0 verification remains a staging check. Feature 04 remains next.
+The refresh has no outstanding local acceptance checks. Live Auth0 verification remains a staging check.
+
+## Feature 04 evidence
+
+Verified on 2026-11-23 with Node 26.5.0, pnpm 10.34.9, Chromium, a local OIDC issuer and an isolated Docker Compose stack.
+
+| Check | Result |
+|---|---|
+| `pnpm db:migrate` twice and `pnpm db:generate` | A fresh database migrated successfully. A separate database seeded at Feature 03 retained both legacy project records, inherited the workspace timezone and preserved their visibility under the runtime role. The repeat migration succeeded and Drizzle reported no schema changes. |
+| `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm build`, `git diff --check` | Passed, including three Vitest tests. The production build emitted the existing Rollup warnings from Zod. |
+| `pnpm test:e2e --workers=3 --trace=on` | All 11 Chromium tests passed, including Redis recovery, interface and identity regressions, and the [Feature 04 browser journey](../tests/e2e/projects-and-work.spec.ts). |
+| Board, list and task detail | Two independent browser sessions saved against the same task version. One save succeeded and one returned 409 with the latest version. The second editor retained its draft and merged the other edit on retry. The saved result appeared in the filtered list after refresh and at the stable task URL. Keyboard dismissal restored focus to the card, and the inspector fit 1440, 1024, 390 and 320 CSS px. |
+| Audience and permissions | New projects defaulted to restricted. A same-workspace admin outside the project received 404 over HTTP and saw no project metadata, task titles or audit data through runtime SQL. A lead previewed the workspace audience and made the project visible. Restricting it again and removing an explicit member each cleared an open task view on refresh. Only a lead could set the milestone commitment, and a concurrent retry saved one milestone and one audit and outbox event. |
+| Work lifecycle and attribution | Completing then reopening a task recorded the actor and the transition from Done to Ready. Archiving removed work from the active project count and assigned work, while its stable detail URL and audit history remained available. Project archive filtering and reopening passed. |
+
+Workspace visibility grants read access to current and future workspace members. Editing and assignment require an eligible explicit project role. The overview uses the earliest committed date among open milestones. Feature 04 has passed all local acceptance checks. Feature 05 is next, and Feature 06 also has its prerequisites met.

@@ -1,4 +1,12 @@
-import { createHash, generateKeyPairSync, randomUUID, sign } from "node:crypto";
+import { expect, type Page } from "@playwright/test";
+import {
+  createHash,
+  createPrivateKey,
+  createPublicKey,
+  generateKeyPairSync,
+  randomUUID,
+  sign,
+} from "node:crypto";
 import {
   createServer,
   type IncomingMessage,
@@ -18,13 +26,26 @@ type Login = {
   redirect: string;
 };
 
+export default function setupOidcFixture() {
+  // The app keeps the issuer's public key cached across Playwright projects.
+  const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  process.env.KORDOS_TEST_OIDC_SIGNING_KEY = privateKey
+    .export({
+      format: "pem",
+      type: "pkcs8",
+    })
+    .toString();
+}
+
 export async function startOidcFixture(
   accounts: Record<string, Account>,
   origin: string,
 ) {
-  const { privateKey, publicKey } = generateKeyPairSync("rsa", {
-    modulusLength: 2048,
-  });
+  const signingKey = process.env.KORDOS_TEST_OIDC_SIGNING_KEY;
+  if (!signingKey)
+    throw new Error("Playwright did not initialize the test OIDC issuer.");
+  const privateKey = createPrivateKey(signingKey);
+  const publicKey = createPublicKey(privateKey);
   const codes = new Map<string, Login>();
   const tokens = new Map<string, string>();
   const keyId = "kordos-test-key";
@@ -171,4 +192,25 @@ export async function startOidcFixture(
     new Promise<void>((resolve, reject) => {
       server.close((error) => (error ? reject(error) : resolve()));
     });
+}
+
+export async function signIn(
+  page: Page,
+  account: { name: string },
+  path: string,
+) {
+  await page.goto(path);
+  await expect(page).toHaveURL(/\/sign-in$/);
+  await page.getByRole("button", { name: "Continue to sign in" }).click();
+  await page.getByRole("link", { name: account.name, exact: true }).click();
+}
+
+export async function createTestWorkspace(page: Page, name: string) {
+  await page.getByLabel("Workspace name").fill(name);
+  await page.getByLabel("Timezone").fill("Asia/Kolkata");
+  await page.getByRole("button", { name: "Create workspace" }).click();
+  await expect(page).toHaveURL(/\/w\/[\da-f-]+\/workspace$/);
+  const id = new URL(page.url()).pathname.split("/")[2];
+  if (!id) throw new Error("Missing workspace ID");
+  return id;
 }

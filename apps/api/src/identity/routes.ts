@@ -4,7 +4,6 @@ import {
   createInvitationSchema,
   createWorkspaceSchema,
   idSchema,
-  identityErrorSchema,
   updateMemberSchema,
 } from "@kordos/contracts";
 import type { connectDatabase } from "@kordos/db";
@@ -12,42 +11,21 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { Redis } from "ioredis";
 import { z } from "zod";
 import type { Config } from "../config.js";
+import { registerPlanning } from "../planning/routes.js";
+import { IdentityError, parse, unavailable } from "./http.js";
 import { createSessionService, digest, opaqueToken } from "./session.js";
 
-type ErrorBody = z.infer<typeof identityErrorSchema>;
-class IdentityError extends Error {
-  constructor(
-    readonly status: number,
-    readonly code: ErrorBody["code"],
-    message: string,
-    readonly current?: ErrorBody["current"],
-  ) {
-    super(message);
-  }
-}
-
-const unavailable = () =>
-  new IdentityError(404, "unavailable", "This item is unavailable.");
 const workspaceParams = z.object({ workspaceId: idSchema });
 const memberParams = workspaceParams.extend({ userId: idSchema });
-
-function parse<T>(schema: z.ZodType<T>, input: unknown) {
-  const result = schema.safeParse(input);
-  if (result.success) return result.data;
-  throw new IdentityError(
-    400,
-    "invalid_input",
-    "Check the information you entered.",
-  );
-}
 
 export function registerIdentity(
   app: FastifyInstance,
   config: Config,
   redis: Redis,
-  db: ReturnType<typeof connectDatabase>["identity"],
+  stores: Pick<ReturnType<typeof connectDatabase>, "identity" | "planning">,
 ) {
   const session = createSessionService(config, redis);
+  const db = stores.identity;
 
   app.register(
     async (api) => {
@@ -93,7 +71,7 @@ export function registerIdentity(
           typeof error.code === "string"
             ? error.code
             : undefined;
-        request.log.error({ code }, "Identity request failed");
+        request.log.error({ code }, "Workspace request failed");
         return reply.code(503).send({
           code: "unavailable",
           message: "The workspace is temporarily unavailable. Try again.",
@@ -105,6 +83,8 @@ export function registerIdentity(
         if (actor) return actor;
         throw new IdentityError(401, "signed_out", "Sign in to continue.");
       }
+
+      registerPlanning(api, stores.planning, requireActor);
 
       api.post("/auth/login", async (request, reply) => {
         if (!config.auth) throw unavailable();

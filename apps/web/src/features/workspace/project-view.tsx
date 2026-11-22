@@ -72,7 +72,7 @@ function ProjectTabs({ project }: { project: Project }) {
   );
 }
 
-function ProjectHeader({
+export function ProjectHeader({
   project,
   action,
 }: {
@@ -202,7 +202,7 @@ function ProjectLayout({ project }: { project: Project }) {
   );
 }
 
-function DateComparison({ project }: { project: Project }) {
+export function DateComparison({ project }: { project: Project }) {
   return (
     <dl className="project-facts">
       <div className="glass-panel">

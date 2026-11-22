@@ -1,8 +1,17 @@
 import type { WorkspaceSummary } from "@kordos/contracts";
 import { ArrowRight } from "lucide-react";
-import type { ReactNode } from "react";
+import { useContext, type ReactNode } from "react";
 import { Link, Navigate, Route, Routes, useParams } from "react-router";
 import { PageHeading } from "./components/ui";
+import { PlanningScope } from "./features/planning/planning-client";
+import {
+  PlanningOverview,
+  PlanningProject,
+  ProjectDirectory,
+} from "./features/planning/project-pages";
+import { ProjectSettings } from "./features/planning/project-settings";
+import { WorkInspector } from "./features/planning/work-inspector";
+import { AssignedWork, WorkViews } from "./features/planning/work-views";
 import {
   ProjectOverview,
   ProjectSection,
@@ -60,6 +69,7 @@ export function WorkspaceRoutes({
 }) {
   const { workspaceId } = useParams();
   const home = workspacePath("/workspace", workspaceId);
+  const live = useContext(PlanningScope) !== null;
   return (
     <Routes>
       <Route
@@ -75,6 +85,10 @@ export function WorkspaceRoutes({
             element={
               destination.id === "settings" && settings ? (
                 settings
+              ) : live && destination.id === "home" ? (
+                <AssignedWork />
+              ) : live && destination.id === "projects" ? (
+                <ProjectDirectory projects={workspace.projects} />
               ) : (
                 <WorkspacePage
                   destination={destination}
@@ -86,11 +100,29 @@ export function WorkspaceRoutes({
         ))}
         <Route
           path="projects/:projectId"
-          element={<ProjectView workspace={workspace} />}
+          element={
+            live ? (
+              <PlanningProject key={workspaceId} />
+            ) : (
+              <ProjectView workspace={workspace} />
+            )
+          }
         >
-          <Route index element={<ProjectOverview />} />
+          <Route
+            index
+            element={live ? <PlanningOverview /> : <ProjectOverview />}
+          />
+          {live && (
+            <>
+              <Route path="settings" element={<ProjectSettings />} />
+              <Route path="work" element={<WorkViews />}>
+                <Route path="new" element={<WorkInspector create />} />
+                <Route path=":workId" element={<WorkInspector />} />
+              </Route>
+            </>
+          )}
           {projectDestinations
-            .filter(({ id }) => id !== "overview")
+            .filter(({ id }) => id !== "overview" && (!live || id !== "work"))
             .map((destination) => (
               <Route key={destination.id} path={destination.id}>
                 <Route

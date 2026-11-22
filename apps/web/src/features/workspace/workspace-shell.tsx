@@ -55,6 +55,10 @@ function WorkspaceNavigation({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
+function workViewPath(path: string) {
+  return path.replace(/(\/projects\/[^/]+\/work)\/[^/]+$/, "$1");
+}
+
 export function WorkspaceShell({
   workspace,
   workspaces,
@@ -72,8 +76,9 @@ export function WorkspaceShell({
   const mainRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    if (lastPath.current === pathname) return;
+    const previous = lastPath.current;
     lastPath.current = pathname;
+    if (workViewPath(previous) === workViewPath(pathname)) return;
     mainRef.current?.focus({ preventScroll: true });
     window.scrollTo(0, 0);
   }, [pathname]);

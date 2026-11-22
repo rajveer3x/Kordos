@@ -5,6 +5,7 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    readonly current?: unknown,
   ) {
     super(message);
   }
@@ -37,6 +38,7 @@ export async function request<T = void>(
     throw new ApiError(
       response.status,
       body.success ? body.data.message : "The request failed. Try again.",
+      body.success ? body.data.current : undefined,
     );
   }
   if (options.schema) return options.schema.parse(await response.json());

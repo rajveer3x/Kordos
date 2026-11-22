@@ -4,6 +4,7 @@ import type {
   SessionIdentity,
   UpdateMember,
   WorkspaceMember,
+  WorkspaceProject,
   WorkspaceRole,
   WorkspaceSummary,
 } from "@kordos/contracts";
@@ -23,8 +24,8 @@ export async function setDatabaseScope(
     set_config('kordos.workspace_id', ${workspaceId ?? ""}, true)`;
 }
 
-export function identityStore(client: Sql) {
-  function scoped<T>(
+export function databaseScope(client: Sql) {
+  return function scoped<T>(
     actorId: string,
     workspaceId: string | undefined,
     run: (sql: TransactionSql) => Promise<T>,
@@ -33,7 +34,11 @@ export function identityStore(client: Sql) {
       await setDatabaseScope(sql, actorId, workspaceId);
       return run(sql);
     });
-  }
+  };
+}
+
+export function identityStore(client: Sql) {
+  const scoped = databaseScope(client);
 
   async function role(sql: TransactionSql) {
     const [result] = await sql<{ role: WorkspaceRole | null }[]>`
@@ -85,10 +90,8 @@ export function identityStore(client: Sql) {
           FROM public.workspaces WHERE id = ${workspaceId}
         `;
         if (!workspace) return;
-        const projects = await sql<
-          { id: string; name: string; description: string | null }[]
-        >`
-          SELECT id, name, description FROM public.projects
+        const projects = await sql<WorkspaceProject[]>`
+          SELECT id, name, description, visibility, archived_at IS NOT NULL AS archived FROM public.projects
           WHERE workspace_id = ${workspaceId} ORDER BY name, id
         `;
         return { workspace, projects };

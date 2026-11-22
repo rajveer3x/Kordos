@@ -10,7 +10,7 @@ export function Sheet({
   children,
 }: {
   title: string;
-  opener: HTMLElement;
+  opener?: HTMLElement;
   onDismiss: () => void;
   placement?: "detail" | "navigation";
   children: (dismiss: () => void) => ReactNode;
@@ -27,7 +27,7 @@ export function Sheet({
 
   function dismiss() {
     dialogRef.current?.close();
-    if (opener.isConnected && opener.getClientRects().length) {
+    if (opener?.isConnected && opener.getClientRects().length) {
       opener.focus({ preventScroll: true });
     } else {
       document.getElementById("main-content")?.focus({ preventScroll: true });

@@ -1,6 +1,7 @@
 import {
   boolean,
   check,
+  date,
   foreignKey,
   index,
   integer,
@@ -8,6 +9,7 @@ import {
   pgEnum,
   pgTable,
   primaryKey,
+  smallint,
   text,
   timestamp,
   unique,
@@ -135,8 +137,27 @@ export const projects = pgTable(
     name: text().notNull(),
     description: text(),
     visibility: projectVisibility().notNull().default("restricted"),
+    timeZone: text("time_zone").notNull().default("UTC"),
+    workdays: smallint()
+      .array()
+      .notNull()
+      .default(sql`ARRAY[1,2,3,4,5]::smallint[]`),
+    nonworkingDates: date("nonworking_dates")
+      .array()
+      .notNull()
+      .default(sql`'{}'::date[]`),
+    version: integer().notNull().default(1),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
   },
-  (table) => [index().on(table.workspaceId, table.name)],
+  (table) => [
+    index().on(table.workspaceId, table.name),
+    unique().on(table.workspaceId, table.id),
+    check(
+      "projects_workdays",
+      sql`cardinality(${table.workdays}) BETWEEN 1 AND 7
+      AND ${table.workdays} <@ ARRAY[1,2,3,4,5,6,7]::smallint[]`,
+    ),
+  ],
 );
 
 export const auditEvents = pgTable(
@@ -145,6 +166,7 @@ export const auditEvents = pgTable(
     id: uuid().primaryKey().defaultRandom(),
     workspaceId: uuid("workspace_id").notNull(),
     actorId: uuid("actor_id").notNull(),
+    projectId: uuid("project_id"),
     action: text().notNull(),
     targetId: uuid("target_id").notNull(),
     details: jsonb().$type<Record<string, unknown>>().notNull(),
@@ -157,6 +179,161 @@ export const auditEvents = pgTable(
       columns: [table.workspaceId, table.actorId],
       foreignColumns: [memberships.workspaceId, memberships.userId],
     }),
+    foreignKey({
+      name: "audit_events_project_fk",
+      columns: [table.workspaceId, table.projectId],
+      foreignColumns: [projects.workspaceId, projects.id],
+    }),
     index().on(table.workspaceId, table.createdAt),
+    index("audit_events_work_history_idx").on(
+      table.workspaceId,
+      table.projectId,
+      table.targetId,
+      table.createdAt,
+      table.id,
+    ),
+  ],
+);
+
+export const projectRole = pgEnum("project_role", [
+  "viewer",
+  "contributor",
+  "lead",
+]);
+export const workStatus = pgEnum("work_status", [
+  "backlog",
+  "ready",
+  "in_progress",
+  "done",
+]);
+export const workKind = pgEnum("work_kind", ["task", "milestone"]);
+
+export const projectMembers = pgTable(
+  "project_members",
+  {
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    role: projectRole().notNull(),
+    version: integer().notNull().default(1),
+    joinedAt: timestamp("joined_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    removedAt: timestamp("removed_at", { withTimezone: true }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.workspaceId, table.projectId, table.userId] }),
+    foreignKey({
+      name: "project_members_project_fk",
+      columns: [table.workspaceId, table.projectId],
+      foreignColumns: [projects.workspaceId, projects.id],
+    }),
+    foreignKey({
+      name: "project_members_membership_fk",
+      columns: [table.workspaceId, table.userId],
+      foreignColumns: [memberships.workspaceId, memberships.userId],
+    }),
+  ],
+);
+
+export const workItems = pgTable(
+  "work_items",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    title: text().notNull(),
+    description: text(),
+    kind: workKind().notNull(),
+    status: workStatus().notNull(),
+    ownerId: uuid("owner_id"),
+    estimateDays: integer("estimate_days"),
+    deadline: date(),
+    commitment: date(),
+    blockerReason: text("blocker_reason"),
+    blockerOwnerId: uuid("blocker_owner_id"),
+    blockerResolution: text("blocker_resolution"),
+    version: integer().notNull().default(1),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => [
+    unique().on(table.workspaceId, table.projectId, table.id),
+    foreignKey({
+      name: "work_items_project_fk",
+      columns: [table.workspaceId, table.projectId],
+      foreignColumns: [projects.workspaceId, projects.id],
+    }),
+    foreignKey({
+      name: "work_items_owner_fk",
+      columns: [table.workspaceId, table.projectId, table.ownerId],
+      foreignColumns: [
+        projectMembers.workspaceId,
+        projectMembers.projectId,
+        projectMembers.userId,
+      ],
+    }),
+    foreignKey({
+      name: "work_items_blocker_owner_fk",
+      columns: [table.workspaceId, table.projectId, table.blockerOwnerId],
+      foreignColumns: [
+        projectMembers.workspaceId,
+        projectMembers.projectId,
+        projectMembers.userId,
+      ],
+    }),
+    check("work_items_estimate", sql`${table.estimateDays} BETWEEN 1 AND 3650`),
+    check(
+      "work_items_commitment",
+      sql`${table.kind} = 'milestone' OR ${table.commitment} IS NULL`,
+    ),
+    check(
+      "work_items_completion",
+      sql`(${table.status} = 'done') = (${table.completedAt} IS NOT NULL)`,
+    ),
+    check(
+      "work_items_blocker",
+      sql`${table.blockerReason} IS NOT NULL OR
+    (${table.blockerOwnerId} IS NULL AND ${table.blockerResolution} IS NULL)`,
+    ),
+    index("work_items_assigned_idx")
+      .on(table.workspaceId, table.ownerId, table.id)
+      .where(sql`${table.archivedAt} IS NULL AND ${table.status} <> 'done'`),
+  ],
+);
+
+export const outbox = pgTable(
+  "outbox",
+  {
+    id: uuid()
+      .primaryKey()
+      .references(() => auditEvents.id),
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    actorId: uuid("actor_id").notNull(),
+    mutationId: uuid("mutation_id").notNull(),
+    kind: text().notNull(),
+    targetId: uuid("target_id").notNull(),
+    request: jsonb().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+  },
+  (table) => [
+    unique().on(table.workspaceId, table.actorId, table.mutationId),
+    foreignKey({
+      name: "outbox_project_fk",
+      columns: [table.workspaceId, table.projectId],
+      foreignColumns: [projects.workspaceId, projects.id],
+    }),
+    foreignKey({
+      name: "outbox_actor_fk",
+      columns: [table.workspaceId, table.actorId],
+      foreignColumns: [memberships.workspaceId, memberships.userId],
+    }),
+    index("outbox_pending_idx")
+      .on(table.createdAt, table.id)
+      .where(sql`${table.deliveredAt} IS NULL`),
   ],
 );

@@ -81,6 +81,8 @@ export type Project = {
   id: string;
   name: string;
   description?: string;
+  visibility?: "restricted" | "workspace";
+  archived?: boolean;
   commitment?: string;
   forecast?: string;
   lead?: string;
