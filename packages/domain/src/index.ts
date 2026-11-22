@@ -1,0 +1,14 @@
+import {
+  foundationJobEffect,
+  foundationJobPayloadSchema,
+  type FoundationJobEffect,
+  type FoundationJobPayload,
+} from "@kordos/contracts";
+
+export function runFoundationJob(input: unknown): {
+  id: FoundationJobPayload["id"];
+  effect: FoundationJobEffect;
+} {
+  const { id } = foundationJobPayloadSchema.parse(input);
+  return { id, effect: foundationJobEffect };
+}

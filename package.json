@@ -1,0 +1,35 @@
+{
+  "name": "kordos",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@10.34.9",
+  "scripts": {
+    "dev": "pnpm --parallel --filter './apps/*' dev",
+    "build": "pnpm --filter @kordos/web build",
+    "db:generate": "pnpm --filter @kordos/db generate",
+    "db:migrate": "pnpm --filter @kordos/db migrate",
+    "typecheck": "pnpm -r typecheck && tsc -p tsconfig.json",
+    "lint": "eslint apps packages tests *.config.*",
+    "format:check": "prettier --check apps packages tests .github/workflows compose.yaml *.json *.yaml *.config.* README.md",
+    "test": "vitest run",
+    "test:e2e": "node --env-file-if-exists=.env ./node_modules/@playwright/test/cli.js test"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@kordos/contracts": "workspace:*",
+    "@playwright/test": "1.65.1",
+    "@types/node": "24.19.2",
+    "bullmq": "5.81.6",
+    "eslint": "10.15.0",
+    "ioredis": "5.11.1",
+    "prettier": "3.10.1",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.73.0",
+    "vitest": "4.1.12"
+  }
+}
