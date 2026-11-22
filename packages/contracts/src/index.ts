@@ -40,3 +40,5 @@ export const foundationJobSchema = z.discriminatedUnion("status", [
 
 export type FoundationJob = z.infer<typeof foundationJobSchema>;
 export type FoundationJobEffect = z.infer<typeof foundationJobEffectSchema>;
+
+export * from "./identity.js";

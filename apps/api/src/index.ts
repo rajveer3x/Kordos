@@ -8,6 +8,7 @@ import { connectDatabase } from "@kordos/db";
 import Fastify from "fastify";
 import { Redis } from "ioredis";
 import { loadConfig } from "./config.js";
+import { registerIdentity } from "./identity/routes.js";
 
 const config = loadConfig(process.env);
 const app = Fastify({
@@ -102,6 +103,8 @@ if (config.ENABLE_FOUNDATION_JOBS) {
     },
   );
 }
+
+registerIdentity(app, config, redis, db.identity);
 
 app.addHook("onClose", async () => {
   redis.disconnect();

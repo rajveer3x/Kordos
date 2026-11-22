@@ -12,8 +12,8 @@ Build workspace picker and membership settings. Scope cache and connections to i
 
 ## Acceptance checks
 
-- [ ] An invitation accepted concurrently yields exactly one membership. A mismatched recipient cannot redeem it.
-- [ ] Switching workspaces never reuses another tenant’s data. A removed member loses access while their history remains attributed.
-- [ ] Prove tenant isolation with the app DB role in a reused connection pool.
+- [x] An invitation accepted concurrently yields exactly one membership. A mismatched recipient cannot redeem it.
+- [x] Switching workspaces never reuses another tenant’s data. A removed member loses access while their history remains attributed.
+- [x] Prove tenant isolation with the app DB role in a reused connection pool.
 
 Record verification evidence and outstanding gaps in the [progress tracker](../progress-tracker.md).

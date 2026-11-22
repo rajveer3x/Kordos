@@ -5,6 +5,9 @@ import {
 } from "@kordos/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
+import { Brand } from "../../components/brand";
+import { Button, PageHeading, StatusLabel } from "../../components/ui";
+import "./health.css";
 
 const dependencies = [
   ["postgres", "PostgreSQL"],
@@ -73,23 +76,35 @@ export function HealthPage() {
     unavailable: "API unavailable",
     checking: "Checking",
   };
+  const statusTones = {
+    ready: "confirmed",
+    degraded: "risk",
+    unavailable: "risk",
+    checking: "neutral",
+  } as const;
   const currentJob =
     submission.isPending || submission.isError ? undefined : job.data;
 
   return (
-    <>
-      <header className="site-header">
-        <div className="container wordmark">Kordos</div>
+    <div className="health-page">
+      <title>Workspace health · Kordos</title>
+      <header className="health-header">
+        <div className="health-container">
+          <Brand />
+        </div>
       </header>
-      <main className="container">
-        <h1>Workspace health</h1>
+      <main className="health-container">
+        <PageHeading title="Workspace health" />
 
-        <section aria-labelledby="services-heading" className="panel">
-          <div className="section-heading">
+        <section
+          aria-labelledby="services-heading"
+          className="health-panel glass-panel"
+        >
+          <div className="health-section-heading">
             <h2 id="services-heading">Services</h2>
-            <span className="status" data-health={status} role="status">
+            <StatusLabel tone={statusTones[status]} announce>
               {statusLabels[status]}
-            </span>
+            </StatusLabel>
           </div>
           <dl className="checks">
             {dependencies.map(([key, label]) => {
@@ -110,14 +125,16 @@ export function HealthPage() {
           </dl>
         </section>
 
-        <section aria-labelledby="job-heading" className="panel">
+        <section
+          aria-labelledby="job-heading"
+          className="health-panel glass-panel"
+        >
           <h2 id="job-heading">Worker test</h2>
           <p>
             Run a synthetic job and check that the worker records its result in
             PostgreSQL.
           </p>
-          <button
-            type="button"
+          <Button
             disabled={
               submission.isPending ||
               Boolean(id && job.isPending) ||
@@ -132,7 +149,7 @@ export function HealthPage() {
             }
           >
             {submission.isError ? "Retry test job" : "Run test job"}
-          </button>
+          </Button>
           <div role="status" className="job-result">
             {submission.isPending && <p>Submitting job…</p>}
             {submission.isError && <p>{submission.error.message}</p>}
@@ -155,6 +172,6 @@ export function HealthPage() {
           </div>
         </section>
       </main>
-    </>
+    </div>
   );
 }

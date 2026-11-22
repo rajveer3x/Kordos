@@ -20,7 +20,7 @@ test("workspace health and job delivery recover after a Redis outage", async ({
   request,
 }) => {
   await page.setViewportSize({ width: 320, height: 740 });
-  await page.goto("/");
+  await page.goto("/health");
   await expect(
     page.getByRole("heading", { name: "Workspace health" }),
   ).toBeVisible();

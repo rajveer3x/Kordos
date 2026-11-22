@@ -1,0 +1,146 @@
+.access-card {
+  width: min(100%, 640px);
+  padding: clamp(16px, 4vw, 32px);
+  overflow-wrap: anywhere;
+}
+
+.access-card > .button,
+.public-panel__content > .button {
+  margin-block-start: 12px;
+  justify-self: start;
+}
+
+.workspace-picker > a,
+.sign-out {
+  display: inline-block;
+  margin-block-start: 20px;
+}
+
+.settings-page {
+  max-width: 920px;
+}
+
+.identity-section {
+  margin-block-start: var(--space-6);
+}
+.identity-section.glass-panel,
+.workspace-details.glass-panel {
+  padding: clamp(16px, 3vw, 24px);
+}
+.access-card .identity-section {
+  border-block-start: 1px solid var(--hairline);
+  padding-block-start: var(--space-4);
+}
+.access-page > .brand {
+  margin-block-end: var(--space-4);
+}
+.access-card .destination-list,
+.access-card > p {
+  margin-block-start: var(--space-3);
+}
+.access-card .destination-list span {
+  color: var(--secondary);
+  text-transform: capitalize;
+}
+
+.identity-section h2 {
+  font-size: 1.25rem;
+  margin-block: 0 12px;
+}
+
+.identity-form,
+.invitation-result {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+}
+
+.invitation-result {
+  margin-block-start: 16px;
+}
+
+.identity-form label,
+.invitation-result label {
+  width: min(100%, 420px);
+  display: grid;
+  gap: 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.identity-form input,
+.identity-form select,
+.invitation-result input,
+.membership-actions select {
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 10px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--control-outline);
+  border-radius: var(--radius-control);
+  font: inherit;
+}
+
+.workspace-details,
+.membership-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workspace-details,
+.membership-row,
+.membership-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.workspace-details {
+  gap: var(--space-4) var(--space-8);
+  margin-block-start: var(--space-6);
+}
+
+.workspace-details dt,
+.member-details span {
+  color: var(--secondary);
+  font-size: 0.875rem;
+}
+
+.workspace-details dd {
+  margin: 0;
+}
+
+.membership-row {
+  padding-block: 12px;
+  border-bottom: 1px solid var(--hairline);
+  justify-content: space-between;
+}
+
+.membership-row:last-child {
+  border-block-end: 0;
+  padding-block-end: 0;
+}
+
+.member-details {
+  display: grid;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.identity-section [role="alert"],
+.access-card [role="alert"] {
+  color: var(--critical);
+  margin: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

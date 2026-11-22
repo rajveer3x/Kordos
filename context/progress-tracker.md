@@ -1,14 +1,14 @@
 # Delivery tracker
 
-**Current state** — Feature 01 is implemented and verified locally. The web, API and worker run against PostgreSQL, Redis and private object storage.
+**Current state** — Features 01 through 03 are verified locally, including the frosted-glass interface refresh.
 
-**Next ready feature** — [02 · Interface foundation](feature-specs/02-interface-foundation.md). Use the [session prompt](ai-workflow-rules.md) to start. Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
+**Next ready feature** — [04 · Projects and work items](feature-specs/04-projects-and-work.md). Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
 
 | ID | Feature prompt | Depends on | State | Evidence |
 |---|---|---|---|---|
 | 01 | [Workspace foundation](feature-specs/01-workspace-foundation.md) | — | Done | Clean-checkout and Redis recovery checks passed. See [Feature 01 evidence](#feature-01-evidence). |
-| 02 | [Interface foundation](feature-specs/02-interface-foundation.md) | 01 | Pending | — |
-| 03 | [Identity and tenancy](feature-specs/03-identity-and-tenancy.md) | 01, 02 | Pending | — |
+| 02 | [Interface foundation](feature-specs/02-interface-foundation.md) | 01 | Done | Responsive, keyboard, zoom and contrast checks passed. See [Glass refresh evidence](#glass-refresh-evidence). |
+| 03 | [Identity and tenancy](feature-specs/03-identity-and-tenancy.md) | 01, 02 | Done | Invitation concurrency, workspace switching, revocation and runtime role isolation passed with the refreshed interface. See [Feature 03 evidence](#feature-03-evidence). |
 | 04 | [Projects and work items](feature-specs/04-projects-and-work.md) | 03 | Pending | — |
 | 05 | [Dependencies and forecasts](feature-specs/05-graph-and-forecasts.md) | 04 | Pending | — |
 | 06 | [Comments and presence](feature-specs/06-realtime-collaboration.md) | 04 | Pending | — |
@@ -47,6 +47,69 @@ Verified on 2026-11-22 using Node 24.22.3 and pnpm 10.34.9 in a clean Git checko
 
 All local acceptance checks passed. The GitHub Actions workflow is configured and awaits its first hosted run.
 
-**Current product decisions** — The product is named Kordos. The final v1 specification defines scope. The workspace uses an editorial light theme, GitHub is the first approved external write, and all performance numbers are release targets.
+**Current product decisions** — The product is named Kordos. The final v1 specification defines scope. The workspace uses a soft gradient canvas, frosted navigation and restrained glass artwork. GitHub is the first approved external write. All performance numbers are release targets.
 
-**Session note** — Feature 02 is ready to start. The [local development guide](../README.md) documents the bring-up and recovery commands.
+## Feature 02 evidence
+
+Verified on 2026-11-23 with Node 26.5.0, pnpm 10.34.9 and Playwright Chromium. The browser suite used an isolated Compose project with a freshly migrated database.
+
+| Commands run | Result |
+|---|---|
+| `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm build` | All passed. Vitest passed three tests. The production build excluded the preview entry and fixture content. Rollup emitted the existing Zod annotation warnings. |
+| `pnpm test:e2e --workers=3` | Nine tests passed. Chromium verified the title, primary action and active destination at 1440, 1024, 390 and 320 CSS px. It also verified 200% page zoom, no horizontal overflow, keyboard navigation, focus restoration, reduced motion, evidence deep links, and the signed-out route boundary. The Feature 01 Redis recovery check passed. |
+
+| Overview | Desktop at 1440 px | Mobile at 390 px |
+|---|---|---|
+| Populated | [Screenshot](evidence/feature-02/populated-desktop.png) | [Screenshot](evidence/feature-02/populated-mobile.png) |
+| Empty | [Screenshot](evidence/feature-02/empty-desktop.png) | [Screenshot](evidence/feature-02/empty-mobile.png) |
+
+Feature 03 adds live sign-in and tenancy. Feature 04 supplies real projects and task creation. Brief intake is covered by Feature 09.
+
+## Pixel refresh evidence
+
+Verified on 2026-11-23 with Node 26.5.0, pnpm 10.34.9 and Chromium. The refresh applies to the project overview, shared workspace navigation, sign-in and shared controls. The [glass refresh](#glass-refresh-evidence) superseded this design.
+
+| Check | Result |
+|---|---|
+| `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm build` | Passed, including all three unit tests. The production build excludes the preview and its fixture data. Rollup reported the existing Zod annotation warnings. |
+| `pnpm db:migrate`, `pnpm test:e2e --workers=3` | Nine tests passed against an isolated Compose project. Chromium checked 1440, 1024, 390 and 320 CSS px, 200% zoom, keyboard focus, reduced motion, evidence links, signed-out routing and Redis recovery. |
+| Manual screenshot review and token contrast calculation | Reviewed both overview states, the navigation drawer, sign-in and workspace health. Checked text and status pairs measured 6.15:1 or higher. Checked control outlines measured 3.31:1 or higher. |
+
+| Overview | Desktop at 1440 px | Mobile at 390 px |
+|---|---|---|
+| Populated | [Screenshot](evidence/feature-02/pixel-refresh/populated-desktop.png) | [Screenshot](evidence/feature-02/pixel-refresh/populated-mobile.png) |
+| Empty | [Screenshot](evidence/feature-02/pixel-refresh/empty-desktop.png) | [Screenshot](evidence/feature-02/pixel-refresh/empty-mobile.png) |
+
+The Feature 02 refresh has no outstanding acceptance checks.
+
+## Feature 03 evidence
+
+Verified on 2026-11-23 with Node 26.5.0, pnpm 10.34.9, Chromium and an isolated Compose project. The [identity scenario](../tests/e2e/identity-tenancy.spec.ts) signs into the application using a local OIDC issuer that signs ID tokens and checks PKCE.
+
+| Check | Result |
+|---|---|
+| `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm build` | Passed. Three Vitest tests passed. The build reported the existing Rollup warnings from Zod. |
+| `pnpm db:migrate` twice, `pnpm db:generate` | Migration applied on a fresh database and on the existing foundation database. The repeat run succeeded and Drizzle found no schema changes. |
+| `pnpm test:e2e --workers=3` | Ten Chromium tests passed, including Redis recovery and the Feature 02 regressions. Membership settings fit 1440, 1024, 390 and 320 CSS px without horizontal overflow. |
+| Invitation redemption | An expired link and a mismatched recipient received 404. Three concurrent requests from the intended recipient produced one success and one membership. The browser also resumed a pending invitation after OIDC sign-in and accepted it. |
+| Switching and revocation | Alice switched between identically named projects with different contents. Stale role updates received 409 and the current role and version. The last administrator could neither demote nor remove themselves. Removing Alice revoked tenant access immediately at the API, cleared the open view on its next refresh, and preserved her audit attribution. |
+| PostgreSQL runtime isolation | A one-connection pool reused the same PostgreSQL backend for Alice, Bo and an unauthenticated scope after both commit and rollback. The non-owner runtime role had no BYPASSRLS privilege, returned only authorized rows, denied cross-tenant changes, and could not modify audit history. |
+
+Administrators share the generated invitation link with the verified recipient. The app rechecks membership on each tenant request and refreshes active browser access every five seconds. Sign-in against a live Auth0 tenant remains a staging check and requires the [Auth0 configuration](../README.md#auth0-sign-in). Feature 04 can proceed.
+
+## Glass refresh evidence
+
+Verified on 2026-11-23. The refresh covers the workspace shell and project views, sign-in, workspace selection and membership settings. The new [UI and UX guidance](ui-context.md) applies to future features.
+
+| Check | Result |
+|---|---|
+| `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm build` | Passed, including three unit tests. The production build excludes the Vite preview. The existing Zod annotation warnings remain. |
+| `pnpm db:migrate`, `pnpm test:e2e --workers=3` | Migrated the isolated Compose database. All ten Chromium tests passed, including 320 px reflow, 200% zoom, keyboard focus, Redis recovery and Feature 03 identity and tenant isolation. |
+| Visual and contrast checks | Reviewed populated and empty projects on desktop and mobile, plus sign-in, settings and the workspace picker with a local OIDC fixture. Checked text pairs measured at least 4.87:1 and the checked control outline measured 3.23:1. Chromium used an opaque surface with blur disabled in reduced-transparency mode. |
+
+| Overview | Desktop at 1440 px | Mobile at 390 px |
+|---|---|---|
+| Populated | [Screenshot](evidence/feature-02/glass-refresh/populated-desktop.png) | [Screenshot](evidence/feature-02/glass-refresh/populated-mobile.png) |
+| Empty | [Screenshot](evidence/feature-02/glass-refresh/empty-desktop.png) | [Screenshot](evidence/feature-02/glass-refresh/empty-mobile.png) |
+
+The refresh has no outstanding local acceptance checks. Live Auth0 verification remains a staging check. Feature 04 remains next.
