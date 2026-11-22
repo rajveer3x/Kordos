@@ -7,3 +7,6 @@ test-results/
 .env.*
 !.env.example
 .DS_Store
+
+# Local planning draft
+/Team AI Project Blueprint.docx

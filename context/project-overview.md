@@ -2,7 +2,7 @@
 
 Kordos is the AI workspace for software teams. Use `kordos` as the repository slug. A new release owner should be able to answer “What did we promise, what changed, who owns the next step, and where is the evidence?” from the same multi-tenant workspace where the team does the work.
 
-Start a build from the [progress tracker](progress-tracker.md). Each linked feature file is an implementation prompt. The [final product specification](../Team%20Workspace%20Final%20Product%20Specification.docx) defines v1 scope. The older blueprint supplies example data and a video sequence.
+Start a build from the [progress tracker](progress-tracker.md). Each linked feature file is an implementation prompt. The [final product specification](../Team%20Workspace%20Final%20Product%20Specification.docx) defines v1 scope.
 
 ## The working model
 
