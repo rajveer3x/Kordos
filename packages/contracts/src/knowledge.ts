@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { idSchema } from "./identity.js";
+import { meetingAnchorSchema } from "./meetings.js";
 import { personSchema } from "./planning.js";
 
 const version = z.number().int().positive().max(2147483647);
@@ -33,6 +34,12 @@ export const citationSchema = z.discriminatedUnion("kind", [
     anchor: passageAnchorSchema,
   }),
   z.object({ kind: z.literal("comment"), projectId: idSchema, id: idSchema }),
+  z.object({
+    kind: z.literal("meeting"),
+    projectId: idSchema,
+    id: idSchema,
+    anchor: meetingAnchorSchema,
+  }),
 ]);
 export type Citation = z.infer<typeof citationSchema>;
 export type PassageAnchor = z.infer<typeof passageAnchorSchema>;
@@ -44,6 +51,15 @@ export const resolvedCitationSchema = z.object({
   author: personSchema,
   capturedAt: instant,
   newer: z.boolean(),
+  clip: z
+    .object({
+      recordingId: idSchema.nullable(),
+      startMs: z.number().int().nonnegative(),
+      endMs: z.number().int().positive(),
+      speaker: z.string().nullable(),
+    })
+    .nullable()
+    .optional(),
   subject: z
     .object({
       kind: z.enum(["project", "task", "document", "meeting"]),

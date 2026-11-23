@@ -163,7 +163,9 @@ export function ReviewsPage() {
                       <Link to={`${path}/${item.id}`}>
                         {item.kind === "plan"
                           ? "Create project plan"
-                          : `Edit ${item.kind}`}{" "}
+                          : item.kind === "meeting"
+                            ? "Meeting follow-up"
+                            : `Edit ${item.kind}`}{" "}
                         · {item.title}
                       </Link>
                       <span>
@@ -287,7 +289,9 @@ function ReviewDetails({
   const target =
     proposal.kind === "plan"
       ? `${projectBase}/briefs/${proposal.briefId}`
-      : `${projectBase}/work/${proposal.workId}`;
+      : proposal.kind === "meeting"
+        ? `${projectBase}/meetings/${proposal.meetingId}`
+        : `${projectBase}/work/${proposal.workId}`;
   const receipt = proposal.receipt;
   const targetChanged =
     current &&
@@ -322,7 +326,9 @@ function ReviewDetails({
         title={
           proposal.kind === "plan"
             ? `Plan from ${proposal.title}`
-            : `Edit ${proposal.kind} · ${proposal.before?.title ?? proposal.title}`
+            : proposal.kind === "meeting"
+              ? `Review ${proposal.meetingItem?.kind ?? "follow-up"} · ${proposal.title}`
+              : `Edit ${proposal.kind} · ${proposal.before?.title ?? proposal.title}`
         }
       />
       <section className="glass-panel planning-panel">
@@ -344,7 +350,9 @@ function ReviewDetails({
             <dt>
               {proposal.kind === "plan"
                 ? "Source brief"
-                : `Affected ${proposal.kind}`}
+                : proposal.kind === "meeting"
+                  ? "Source meeting"
+                  : `Affected ${proposal.kind}`}
             </dt>
             <dd>
               <Link to={target}>{proposal.title}</Link>
@@ -362,7 +370,7 @@ function ReviewDetails({
               {proposal.revision} · {proposal.author.name}
             </dd>
           </div>
-          {proposal.kind !== "plan" && (
+          {proposal.kind !== "plan" && proposal.kind !== "meeting" && (
             <div>
               <dt>Work version under review</dt>
               <dd>{proposal.targetVersion}</dd>
@@ -398,6 +406,12 @@ function ReviewDetails({
             </Link>
           </div>
         )}
+        {proposal.kind === "meeting" && proposal.status === "stale" && (
+          <p className="planning-conflict">
+            Review the current transcript and reprocess its suggestions before
+            submitting this follow-up again.
+          </p>
+        )}
         {proposal.reason && <p className="review-reason">{proposal.reason}</p>}
         {targetChanged && (
           <p className="planning-conflict">
@@ -422,7 +436,9 @@ function ReviewDetails({
           <h2>
             {proposal.kind === "plan"
               ? "Proposed tasks and dependencies"
-              : "Work item changes"}
+              : proposal.kind === "meeting"
+                ? "Proposed follow-up"
+                : "Work item changes"}
           </h2>
           {proposal.kind === "plan" && proposal.plan ? (
             <PlanPreview
@@ -437,7 +453,63 @@ function ReviewDetails({
                 ),
               )}
             />
-          ) : proposal.kind !== "plan" && proposal.before && proposal.after ? (
+          ) : proposal.kind === "meeting" && proposal.meetingItem ? (
+            <>
+              <dl className="planning-facts">
+                <div>
+                  <dt>Type</dt>
+                  <dd>
+                    {proposal.meetingItem.kind === "question"
+                      ? "Open question"
+                      : proposal.meetingItem.kind}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Owner</dt>
+                  <dd>
+                    {proposal.owners.find(
+                      ({ id }) => id === proposal.meetingItem?.ownerId,
+                    )?.name ?? "Unassigned"}
+                  </dd>
+                </div>
+                <div>
+                  <dt>
+                    {proposal.meetingItem.kind === "decision"
+                      ? "Effective date"
+                      : "Due date"}
+                  </dt>
+                  <dd>
+                    {proposal.meetingItem.date ??
+                      (proposal.meetingItem.kind === "decision"
+                        ? "Meeting date"
+                        : "No date")}
+                  </dd>
+                </div>
+              </dl>
+              {proposal.meetingItem.detail && (
+                <p>{proposal.meetingItem.detail}</p>
+              )}
+              {(proposal.meetingWorkId || proposal.meetingDecisionId) && (
+                <div className="planning-actions">
+                  {proposal.meetingWorkId && (
+                    <Link to={`${projectBase}/work/${proposal.meetingWorkId}`}>
+                      Open resulting task
+                    </Link>
+                  )}
+                  {proposal.meetingDecisionId && (
+                    <Link
+                      to={`${projectBase}/documents/decisions/${proposal.meetingDecisionId}`}
+                    >
+                      Open confirmed decision
+                    </Link>
+                  )}
+                </div>
+              )}
+            </>
+          ) : proposal.kind !== "plan" &&
+            proposal.kind !== "meeting" &&
+            proposal.before &&
+            proposal.after ? (
             <ReviewDiff
               before={proposal.before}
               after={proposal.after}
@@ -502,13 +574,16 @@ function ReviewDetails({
                 >
                   {proposal.kind === "plan"
                     ? "Open applied plan in audit history"
-                    : "Open applied work edit"}
+                    : proposal.kind === "meeting"
+                      ? "Open approved follow-up in audit history"
+                      : "Open applied work edit"}
                 </Link>
               )}
             </div>
           </section>
         )}
         {editor &&
+          editor.kind !== "meeting" &&
           proposal.canEdit &&
           (editor.kind === "plan" ? (
             <PlanRevisionEditor
@@ -722,7 +797,7 @@ function ProposalEditor({
   path,
   onClose,
 }: {
-  proposal: Exclude<ProposalDetail, { kind: "plan" }>;
+  proposal: Exclude<ProposalDetail, { kind: "plan" | "meeting" }>;
   head: string;
   path: string;
   onClose: () => void;

@@ -1,3 +1,4 @@
+import { S3Client } from "@aws-sdk/client-s3";
 import { setTimeout as delay } from "node:timers/promises";
 import {
   foundationJobKind,
@@ -10,6 +11,7 @@ import { Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { z } from "zod";
 import { startBriefs } from "./briefs.js";
+import { startMeetings } from "./meetings.js";
 import { startRisks } from "./risks.js";
 import { startApprovals } from "./approvals.js";
 
@@ -21,6 +23,21 @@ const config = z
     OPENAI_BASE_URL: z
       .url({ protocol: /^https?$/ })
       .default("https://api.openai.com/v1/"),
+    OPENAI_MEETING_MODEL: z
+      .string()
+      .min(1)
+      .default("gpt-4o-transcribe-diarize"),
+    MEETING_TRANSCRIPTION_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(50)
+      .max(115000)
+      .default(90000),
+    STORAGE_ENDPOINT: z.url({ protocol: /^https?$/ }).optional(),
+    STORAGE_REGION: z.string().min(1).optional(),
+    STORAGE_BUCKET: z.string().min(1).optional(),
+    STORAGE_ACCESS_KEY_ID: z.string().min(1).optional(),
+    STORAGE_SECRET_ACCESS_KEY: z.string().min(1).optional(),
     OPENAI_BRIEF_MODEL: z.string().min(1).optional(),
     BRIEF_MODEL_TIMEOUT_MS: z.coerce
       .number()
@@ -119,6 +136,43 @@ const briefs = settings.BRIEF_WORKER_DATABASE_URL
     )
   : undefined;
 const risks = startRisks(db.risks, producer, consumer, reportRedisError);
+const storage =
+  settings.STORAGE_ENDPOINT &&
+  settings.STORAGE_REGION &&
+  settings.STORAGE_BUCKET &&
+  settings.STORAGE_ACCESS_KEY_ID &&
+  settings.STORAGE_SECRET_ACCESS_KEY
+    ? {
+        bucket: settings.STORAGE_BUCKET,
+        client: new S3Client({
+          endpoint: settings.STORAGE_ENDPOINT,
+          region: settings.STORAGE_REGION,
+          forcePathStyle: true,
+          maxAttempts: 1,
+          credentials: {
+            accessKeyId: settings.STORAGE_ACCESS_KEY_ID,
+            secretAccessKey: settings.STORAGE_SECRET_ACCESS_KEY,
+          },
+        }),
+      }
+    : undefined;
+const meetings = settings.BRIEF_WORKER_DATABASE_URL
+  ? startMeetings(
+      settings.BRIEF_WORKER_DATABASE_URL,
+      storage,
+      settings.OPENAI_API_KEY
+        ? {
+            apiKey: settings.OPENAI_API_KEY,
+            baseUrl: settings.OPENAI_BASE_URL,
+            model: settings.OPENAI_MEETING_MODEL,
+            timeoutMs: settings.MEETING_TRANSCRIPTION_TIMEOUT_MS,
+          }
+        : undefined,
+      producer,
+      consumer,
+      reportRedisError,
+    )
+  : undefined;
 const shutdown = new AbortController();
 
 async function dispatchPendingJobs(signal: AbortSignal) {
@@ -140,6 +194,7 @@ async function dispatchPendingJobs(signal: AbortSignal) {
         await approvals.dispatch(signal);
         await risks.dispatch(signal);
         await briefs?.dispatch(signal);
+        await meetings?.dispatch(signal);
         dispatchFailed = false;
       }
     } catch (error) {
@@ -170,6 +225,7 @@ async function stop() {
       approvals.close(),
       risks.close(),
       briefs?.close(),
+      meetings?.close(),
     ]);
     await queue.close();
     await db.close();
@@ -177,6 +233,7 @@ async function stop() {
     console.error("[worker] Shutdown failed.", error);
     process.exitCode = 1;
   } finally {
+    storage?.client.destroy();
     producer.disconnect();
     consumer.disconnect();
   }

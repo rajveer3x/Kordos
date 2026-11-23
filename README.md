@@ -46,6 +46,12 @@ ALTER ROLE kordos_brief_worker LOGIN;
 \password kordos_brief_worker
 ```
 
+## Meeting recordings
+
+Open the **Meetings** tab in a project to create a meeting, add an agenda, and upload an authorized recording or paste a transcript. The worker uses the same restricted database connection as brief extraction. Set `OPENAI_API_KEY` in the worker environment for recording transcription. `OPENAI_MEETING_MODEL` defaults to `gpt-4o-transcribe-diarize`. Pasted transcripts and suggestion reprocessing run locally. [OpenAI file transcription](https://developers.openai.com/api/docs/guides/speech-to-text)
+
+Recording uploads accept MP3, WAV and M4A up to 20 MB. Set a retention period of 7, 30 or 90 days when creating or editing a meeting. Playback checks project access on each request. Removal and expiry revoke playback and queue deletion of the private object. Saved transcript revisions and approved follow-up stay available to project members.
+
 ## Interface preview
 
 With `pnpm dev` running, open the [populated project](http://127.0.0.1:4317/preview/#/projects/checkout) or the [empty project](http://127.0.0.1:4317/preview/#/projects/developer-portal). The preview uses synthetic workspace data in development. The live entry point at `/` routes to sign-in.

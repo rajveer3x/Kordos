@@ -134,14 +134,19 @@ export function registerKnowledge(
   api.get(project + "/evidence/:kind/:id", async (request) => {
     const actor = await requireActor(request);
     const where = parse(
-      target.extend({ kind: z.enum(["document", "comment"]) }),
+      target.extend({ kind: z.enum(["document", "comment", "meeting"]) }),
       request.params,
     );
     const { kind, projectId, id } = where;
     const anchor =
-      kind === "document"
+      kind !== "comment"
         ? parse(
-            z.object({ revision: number, start: number, end: number }),
+            z.object({
+              revision: number,
+              start: number,
+              end: number,
+              segmentId: idSchema.optional(),
+            }),
             request.query,
           )
         : undefined;

@@ -208,6 +208,7 @@ export function registerReviews(
       const current =
         data &&
         data.kind !== "plan" &&
+        data.kind !== "meeting" &&
         workItemSchema.safeParse(
           await planning.work(scope, data.projectId, data.workId),
         ).data;

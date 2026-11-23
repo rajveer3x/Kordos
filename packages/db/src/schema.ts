@@ -770,6 +770,224 @@ export const briefJobs = pgTable(
   ],
 );
 
+export const meetings = pgTable(
+  "meetings",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    organizerId: uuid("organizer_id").notNull(),
+    jobActorId: uuid("job_actor_id").notNull(),
+    title: text().notNull(),
+    agenda: text(),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    timeZone: text("time_zone").notNull(),
+    retentionDays: integer("retention_days").notNull(),
+    version: integer().notNull().default(1),
+    transcriptRevision: integer("transcript_revision").notNull().default(0),
+    generation: integer().notNull().default(1),
+    attempt: integer().notNull().default(0),
+    status: text().notNull().default("empty"),
+    mode: text(),
+    failure: text(),
+    pendingText: text("pending_text"),
+    lease: uuid(),
+    leaseUntil: timestamp("lease_until", { withTimezone: true }),
+  },
+  (t) => [
+    unique("meetings_scope_unique").on(t.workspaceId, t.projectId, t.id),
+    foreignKey({
+      name: "meetings_project_fk",
+      columns: [t.workspaceId, t.projectId],
+      foreignColumns: [projects.workspaceId, projects.id],
+    }),
+    foreignKey({
+      name: "meetings_organizer_fk",
+      columns: [t.workspaceId, t.organizerId],
+      foreignColumns: [memberships.workspaceId, memberships.userId],
+    }),
+    foreignKey({
+      name: "meetings_actor_fk",
+      columns: [t.workspaceId, t.jobActorId],
+      foreignColumns: [memberships.workspaceId, memberships.userId],
+    }),
+    index("meetings_project_date_idx").on(
+      t.workspaceId,
+      t.projectId,
+      t.startsAt,
+      t.id,
+    ),
+    index("meetings_queue_idx")
+      .on(t.leaseUntil, t.id)
+      .where(sql`${t.status} IN ('queued','processing')`),
+    check(
+      "meetings_state",
+      sql`${t.status} IN ('empty','queued','processing','ready','failed')
+    AND ${t.attempt} BETWEEN 0 AND 3 AND ${t.retentionDays} IN (7,30,90)
+    AND (${t.status} = 'processing') = (${t.lease} IS NOT NULL AND ${t.leaseUntil} IS NOT NULL)`,
+    ),
+  ],
+);
+
+export const meetingMedia = pgTable(
+  "meeting_media",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    meetingId: uuid("meeting_id").notNull(),
+    actorId: uuid("actor_id").notNull(),
+    mutationId: uuid("mutation_id").notNull(),
+    extension: text().notNull(),
+    digest: text().notNull(),
+    size: integer().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    availableAt: timestamp("available_at", { withTimezone: true }),
+    removedAt: timestamp("removed_at", { withTimezone: true }),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (t) => [
+    unique("meeting_media_scope_unique").on(
+      t.workspaceId,
+      t.projectId,
+      t.meetingId,
+      t.id,
+    ),
+    unique("meeting_media_mutation_unique").on(
+      t.workspaceId,
+      t.actorId,
+      t.mutationId,
+    ),
+    uniqueIndex("meeting_media_active_idx")
+      .on(t.workspaceId, t.projectId, t.meetingId)
+      .where(sql`${t.removedAt} IS NULL`),
+    index("meeting_media_expiry_idx")
+      .on(t.expiresAt, t.id)
+      .where(sql`${t.deletedAt} IS NULL`),
+    foreignKey({
+      name: "meeting_media_meeting_fk",
+      columns: [t.workspaceId, t.projectId, t.meetingId],
+      foreignColumns: [meetings.workspaceId, meetings.projectId, meetings.id],
+    }),
+    foreignKey({
+      name: "meeting_media_actor_fk",
+      columns: [t.workspaceId, t.actorId],
+      foreignColumns: [memberships.workspaceId, memberships.userId],
+    }),
+    check(
+      "meeting_media_metadata",
+      sql`${t.extension} IN ('wav','mp3','m4a') AND ${t.size} BETWEEN 1 AND 20971520`,
+    ),
+  ],
+);
+
+export const meetingTranscripts = pgTable(
+  "meeting_transcripts",
+  {
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    meetingId: uuid("meeting_id").notNull(),
+    revision: integer().notNull(),
+    mediaId: uuid("media_id"),
+    authorId: uuid("author_id").notNull(),
+    segments: jsonb().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    primaryKey({
+      name: "meeting_transcripts_pk",
+      columns: [t.workspaceId, t.projectId, t.meetingId, t.revision],
+    }),
+    foreignKey({
+      name: "meeting_transcripts_meeting_fk",
+      columns: [t.workspaceId, t.projectId, t.meetingId],
+      foreignColumns: [meetings.workspaceId, meetings.projectId, meetings.id],
+    }),
+    foreignKey({
+      name: "meeting_transcripts_media_fk",
+      columns: [t.workspaceId, t.projectId, t.meetingId, t.mediaId],
+      foreignColumns: [
+        meetingMedia.workspaceId,
+        meetingMedia.projectId,
+        meetingMedia.meetingId,
+        meetingMedia.id,
+      ],
+    }),
+    foreignKey({
+      name: "meeting_transcripts_actor_fk",
+      columns: [t.workspaceId, t.authorId],
+      foreignColumns: [memberships.workspaceId, memberships.userId],
+    }),
+  ],
+);
+
+export const meetingItems = pgTable(
+  "meeting_items",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    meetingId: uuid("meeting_id").notNull(),
+    key: text().notNull(),
+    transcriptRevision: integer("transcript_revision").notNull(),
+    suggestion: jsonb().notNull(),
+    reviewedValues: jsonb("reviewed_values"),
+    status: text().notNull().default("suggested"),
+    version: integer().notNull().default(1),
+    proposalId: uuid("proposal_id"),
+    workId: uuid("work_id"),
+    decisionId: uuid("decision_id"),
+  },
+  (t) => [
+    unique("meeting_items_scope_unique").on(t.workspaceId, t.projectId, t.id),
+    unique("meeting_items_key_unique").on(
+      t.workspaceId,
+      t.projectId,
+      t.meetingId,
+      t.key,
+    ),
+    unique("meeting_items_work_unique").on(t.workId),
+    unique("meeting_items_decision_unique").on(t.decisionId),
+    foreignKey({
+      name: "meeting_items_transcript_fk",
+      columns: [t.workspaceId, t.projectId, t.meetingId, t.transcriptRevision],
+      foreignColumns: [
+        meetingTranscripts.workspaceId,
+        meetingTranscripts.projectId,
+        meetingTranscripts.meetingId,
+        meetingTranscripts.revision,
+      ],
+    }),
+    foreignKey({
+      name: "meeting_items_work_fk",
+      columns: [t.workspaceId, t.projectId, t.workId],
+      foreignColumns: [
+        workItems.workspaceId,
+        workItems.projectId,
+        workItems.id,
+      ],
+    }),
+    foreignKey({
+      name: "meeting_items_decision_fk",
+      columns: [t.workspaceId, t.projectId, t.decisionId],
+      foreignColumns: [
+        decisions.workspaceId,
+        decisions.projectId,
+        decisions.id,
+      ],
+    }),
+    check(
+      "meeting_items_state",
+      sql`${t.status} IN ('suggested','submitted','stale','accepted','rejected')`,
+    ),
+  ],
+);
+
 export const proposalStatus = pgEnum("proposal_status", [
   "draft",
   "pending",
@@ -791,6 +1009,7 @@ export const proposals = pgTable(
     projectId: uuid("project_id").notNull(),
     workId: uuid("work_id"),
     briefId: uuid("brief_id"),
+    meetingItemId: uuid("meeting_item_id"),
     requesterId: uuid("requester_id").notNull(),
     status: proposalStatus().notNull().default("draft"),
     revision: integer().notNull().default(1),
@@ -805,10 +1024,20 @@ export const proposals = pgTable(
   },
   (table) => [
     unique().on(table.workspaceId, table.projectId, table.id),
+    foreignKey({
+      name: "proposals_meeting_item_fk",
+      columns: [table.workspaceId, table.projectId, table.meetingItemId],
+      foreignColumns: [
+        meetingItems.workspaceId,
+        meetingItems.projectId,
+        meetingItems.id,
+      ],
+    }),
+    index("proposals_meeting_item_idx").on(table.meetingItemId),
     unique("proposals_brief_unique").on(table.briefId),
     check(
       "proposals_one_target",
-      sql`num_nonnulls(${table.workId}, ${table.briefId}) = 1`,
+      sql`num_nonnulls(${table.workId}, ${table.briefId}, ${table.meetingItemId}) = 1`,
     ),
     foreignKey({
       name: "proposals_brief_fk",
@@ -889,7 +1118,7 @@ export const proposalRevisions = pgTable(
     }),
     check(
       "proposal_revisions_command",
-      sql`coalesce(${table.command}->>'kind' IN ('work.edit', 'plan.create'), false)`,
+      sql`coalesce(${table.command}->>'kind' IN ('work.edit', 'plan.create', 'meeting.accept'), false)`,
     ),
   ],
 );

@@ -32,6 +32,16 @@ import "./features/workspace/workspace.css";
 
 const ProjectGraph = lazy(() => import("./features/planning/project-graph"));
 const ProjectKnowledge = lazy(() => import("./features/knowledge/routes"));
+const MeetingsPage = lazy(() =>
+  import("./features/meetings/meetings").then(({ MeetingsPage }) => ({
+    default: MeetingsPage,
+  })),
+);
+const MeetingPage = lazy(() =>
+  import("./features/meetings/meetings").then(({ MeetingPage }) => ({
+    default: MeetingPage,
+  })),
+);
 const RiskHistory = lazy(() =>
   import("./features/risks/risks").then(({ RiskHistory }) => ({
     default: RiskHistory,
@@ -231,6 +241,22 @@ export function WorkspaceRoutes({
                   </LazyPage>
                 }
               />
+              <Route
+                path="meetings"
+                element={
+                  <LazyPage>
+                    <MeetingsPage />
+                  </LazyPage>
+                }
+              />
+              <Route
+                path="meetings/:meetingId"
+                element={
+                  <LazyPage>
+                    <MeetingPage />
+                  </LazyPage>
+                }
+              />
               <Route path="settings" element={<ProjectSettings />} />
               <Route
                 path="activity"
@@ -269,6 +295,7 @@ export function WorkspaceRoutes({
                   (id !== "work" &&
                     id !== "graph" &&
                     id !== "documents" &&
+                    id !== "meetings" &&
                     id !== "activity")),
             )
             .map((destination) => (

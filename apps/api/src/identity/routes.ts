@@ -18,6 +18,7 @@ import { registerKnowledge } from "../knowledge/routes.js";
 import { registerForecast } from "../planning/forecast-routes.js";
 import { registerPlanning } from "../planning/routes.js";
 import { registerBriefs } from "../briefs/routes.js";
+import { registerMeetings } from "../meetings/routes.js";
 import { registerRisks } from "../risks/routes.js";
 import { registerReviews } from "../reviews/routes.js";
 import { IdentityError, parse, unavailable } from "./http.js";
@@ -37,6 +38,7 @@ export function registerIdentity(
     | "forecast"
     | "collaboration"
     | "knowledge"
+    | "meetings"
     | "reviews"
     | "risks"
     | "briefs"
@@ -116,6 +118,13 @@ export function registerIdentity(
       registerBriefs(api, stores.briefs, requireActor);
       registerForecast(api, stores.forecast, requireActor);
       registerCollaboration(api, stores.collaboration, requireActor);
+      registerMeetings(
+        api,
+        stores.meetings,
+        requireActor,
+        storage,
+        config.STORAGE_BUCKET,
+      );
       registerKnowledge(
         api,
         stores.knowledge,

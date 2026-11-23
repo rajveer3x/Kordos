@@ -19,12 +19,15 @@ export function useKnowledge() {
 
 export function citationPath(workspaceId: string, source: Citation) {
   const query =
-    source.kind === "document"
+    source.kind !== "comment"
       ? "?" +
         new URLSearchParams({
           revision: String(source.anchor.revision),
           start: String(source.anchor.start),
           end: String(source.anchor.end),
+          ...(source.kind === "meeting"
+            ? { segmentId: source.anchor.segmentId }
+            : {}),
         })
       : "";
   return (
@@ -65,6 +68,7 @@ export function citationFromRoute(
       revision: Number(search.get("revision") ?? NaN),
       start: Number(search.get("start") ?? NaN),
       end: Number(search.get("end") ?? NaN),
+      segmentId: search.get("segmentId"),
     },
   });
   return result.success ? result.data : undefined;

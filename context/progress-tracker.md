@@ -1,8 +1,8 @@
 # Delivery tracker
 
-**Current state** — Features 01 through 10 are verified locally.
+**Current state** — Features 01 through 11 are verified locally.
 
-**Next ready feature** — [11 · Meetings and accountable follow-up](feature-specs/11-meetings-and-actions.md). [Feature 12](feature-specs/12-inbox-and-deadlines.md) and [Feature 13](feature-specs/13-connector-runtime.md) also have their prerequisites met. Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
+**Next ready feature** — [12 · Inbox and deadline delivery](feature-specs/12-inbox-and-deadlines.md). [Feature 13](feature-specs/13-connector-runtime.md) also has its prerequisites met. Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
 
 | ID | Feature prompt | Depends on | State | Evidence |
 |---|---|---|---|---|
@@ -16,7 +16,7 @@
 | 08 | [Approval engine and audit history](feature-specs/08-approvals-and-audit.md) | 04, 07 | Done | Concurrent approval, execution checks and audit tracing passed. See [Feature 08 evidence](#feature-08-evidence). |
 | 09 | [Brief to approved project plan](feature-specs/09-brief-to-plan.md) | 05, 07, 08 | Done | Sourced candidates, cycle rejection, atomic approval and timeout recovery passed. See [Feature 09 evidence](#feature-09-evidence). |
 | 10 | [Risks from project activity](feature-specs/10-risk-from-activity.md) | 05, 06, 08, 09 | Done | Forecast impact, author clarification, stale replan protection and approved commitment changes passed. See [Feature 10 evidence](#feature-10-evidence). |
-| 11 | [Meetings and accountable follow-up](feature-specs/11-meetings-and-actions.md) | 06, 07, 08, 09 | Pending | — |
+| 11 | [Meetings and accountable follow-up](feature-specs/11-meetings-and-actions.md) | 06, 07, 08, 09 | Done | Exact segment playback, reviewed follow-up, reprocessing and media retention passed. See [Feature 11 evidence](#feature-11-evidence). |
 | 12 | [Inbox and deadline delivery](feature-specs/12-inbox-and-deadlines.md) | 06, 08, 10 | Pending | — |
 | 13 | [Connector management and ingestion](feature-specs/13-connector-runtime.md) | 03, 04, 07 | Pending | — |
 | 14 | [GitHub activity and approved comments](feature-specs/14-github-activity-and-actions.md) | 08, 13 | Pending | — |
@@ -228,3 +228,20 @@ Verified on 2026-11-23 with Node 26.5.0, pnpm 10.34.9, Chromium, loopback OIDC a
 Risk extraction uses explicit delay language, task context and supported absolute or relative date phrases. Dates resolve in the project timezone from the comment revision's timestamp. A replan proposes a specific milestone commitment through the existing approval engine.
 
 All local Feature 10 acceptance checks passed. Feature 11 is next.
+
+
+## Feature 11 evidence
+
+Verified on 2026-11-23 with Node 26.5.0, pnpm 10.34.9, Chromium, loopback OIDC and transcription fixtures, and isolated PostgreSQL, Redis and S3-compatible storage.
+
+| Check | Result |
+|---|---|
+| `pnpm install --frozen-lockfile --offline`, `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm build`, `git diff --check` | Passed, including 17 Vitest tests. The build reported the existing Zod annotation and Vite entry-chunk size warnings. |
+| `pnpm db:migrate` twice and `pnpm db:generate` | Fresh and repeat migrations passed, and Drizzle found no schema changes. An isolated upgrade from Feature 10 preserved a restricted project, its source document and pending approval. The original approval applied through the same receipt after upgrading. |
+| `pnpm test:e2e --workers=3 --trace=on` and `pnpm test:e2e --project=meetings --no-deps --trace=on` | All 18 browser tests passed. The focused [Feature 11 journey](../tests/e2e/meetings-and-actions.spec.ts) also verified immediate playback revocation and automatic expiry. Reflow passed at 1440, 1024, 390 and 320 CSS px. Desktop and mobile trace frames showed the capture controls, transcript and follow-up. |
+| Authorization, playback and follow-up | The WAV upload required authorization and recovered from a simulated timeout. Approval produced one task and receipt across repeated approval and duplicate worker delivery. The task linked to the exact 00:03–00:05 clip and its supporting quote. Completing the task updated its meeting. The approved decision appeared in the register with a meeting citation. |
+| Correction, reprocessing and retention | “Ask Maya about rollout” stayed unassigned until the reviewer chose an owner. Correcting a speaker created a new transcript revision, made the affected proposal stale, and preserved accepted items on reprocessing. A separate pasted transcript produced a question without a provider call. Project membership revocation denied meeting, audio, citation and decision access. Explicit removal and expiry blocked playback and deleted the private object. The transcript and approved decision remained readable to authorized project members. |
+
+Private recordings accept MP3, WAV and M4A up to 20 MB. Meetings support 7-, 30- and 90-day recording retention. Follow-up extraction uses explicit transcript cues and resolves dates against the meeting time and project timezone. Live OpenAI transcription remains a staging check and requires the [worker configuration](../README.md#meeting-recordings).
+
+All local Feature 11 acceptance checks passed. Feature 12 is next.

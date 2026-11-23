@@ -8,6 +8,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1175.0",
     "@kordos/contracts": "workspace:*",
     "@kordos/db": "workspace:*",
     "@kordos/domain": "workspace:*",

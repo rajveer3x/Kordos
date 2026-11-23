@@ -2,6 +2,7 @@ import { z } from "zod";
 import { briefPlanSchema } from "./briefs.js";
 import { idSchema } from "./identity.js";
 import { citationSchema, resolvedCitationSchema } from "./knowledge.js";
+import { meetingItemValuesSchema } from "./meetings.js";
 import { personSchema, workFieldsSchema } from "./planning.js";
 
 const version = z.number().int().positive().max(2147483647);
@@ -79,10 +80,16 @@ const summary = z.object({
   revision: version,
 });
 const workTarget = { workId: idSchema, kind: z.enum(["task", "milestone"]) };
+const meetingTarget = {
+  meetingId: idSchema,
+  meetingItemId: idSchema,
+  kind: z.literal("meeting"),
+};
 const planTarget = { briefId: idSchema, kind: z.literal("plan") };
 export const proposalSummarySchema = z.discriminatedUnion("kind", [
   summary.extend(workTarget),
   summary.extend(planTarget),
+  summary.extend(meetingTarget),
 ]);
 const detail = summary.extend({
   version,
@@ -113,6 +120,12 @@ export const proposalDetailSchema = z.discriminatedUnion("kind", [
     ...planTarget,
     plan: briefPlanSchema.nullable(),
     createdWork: z.record(idSchema, idSchema).nullable(),
+  }),
+  detail.extend({
+    ...meetingTarget,
+    meetingItem: meetingItemValuesSchema.nullable(),
+    meetingWorkId: idSchema.nullable(),
+    meetingDecisionId: idSchema.nullable(),
   }),
 ]);
 export const reviewResponseSchema = z.object({

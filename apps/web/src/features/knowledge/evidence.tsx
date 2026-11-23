@@ -2,6 +2,7 @@ import { resolvedCitationSchema, type Citation } from "@kordos/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams, useSearchParams } from "react-router";
 import { denied, read } from "../identity/api";
+import { RecordingClip } from "../meetings/recording";
 import { planningRefresh } from "../planning/planning-client";
 import { EvidencePassage } from "./evidence-passage";
 import { KnowledgeHeading, KnowledgeState } from "./documents";
@@ -46,6 +47,14 @@ export function EvidencePage() {
       ) : (
         <>
           <EvidencePassage entry={result.data} standalone />
+          {source.kind === "meeting" && result.data.clip && (
+            <RecordingClip
+              key={result.data.clip.recordingId}
+              projectId={source.projectId}
+              meetingId={source.id}
+              {...result.data.clip}
+            />
+          )}
           {writable && (
             <Link
               to={

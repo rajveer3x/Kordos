@@ -1,5 +1,6 @@
 import type { ResolvedCitation } from "@kordos/contracts";
 import { Link } from "react-router";
+import { recordingTime } from "../meetings/recording";
 import { usePlanning } from "../planning/planning-client";
 import { projectPath, workspacePath } from "../workspace/workspace-model";
 import { citationPath } from "./knowledge-client";
@@ -24,20 +25,28 @@ export function EvidencePassage({
         source.id +
         "/revisions/" +
         source.anchor.revision
-      : subject?.kind === "task"
-        ? project + "/work/" + subject.id
-        : subject?.kind === "document"
-          ? project + "/documents/" + subject.id
-          : subject?.kind === "project"
-            ? project
-            : undefined;
+      : source.kind === "meeting"
+        ? project +
+          "/meetings/" +
+          source.id +
+          "?revision=" +
+          source.anchor.revision
+        : subject?.kind === "task"
+          ? project + "/work/" + subject.id
+          : subject?.kind === "document"
+            ? project + "/documents/" + subject.id
+            : subject?.kind === "project"
+              ? project
+              : undefined;
   return (
     <figure className="knowledge-evidence">
       <figcaption>
         <strong>{entry.title}</strong>
         <span className="planning-help">
-          {source.kind === "document" &&
+          {source.kind !== "comment" &&
             "Revision " + source.anchor.revision + " · "}
+          {entry.clip &&
+            `${recordingTime(entry.clip.startMs)}–${recordingTime(entry.clip.endMs)} · ${entry.clip.speaker ?? "Unknown speaker"} · `}
           {author.name} ·{" "}
           <time dateTime={capturedAt}>
             {new Date(capturedAt).toLocaleString()}
@@ -51,7 +60,9 @@ export function EvidencePassage({
           <Link to={original}>
             {source.kind === "document"
               ? "Open full revision"
-              : "Open discussion"}
+              : source.kind === "meeting"
+                ? "Open transcript revision"
+                : "Open discussion"}
           </Link>
         )
       ) : (

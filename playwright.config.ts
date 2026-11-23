@@ -25,6 +25,7 @@ export default defineConfig({
         "**/approvals-and-audit.spec.ts",
         "**/brief-to-plan.spec.ts",
         "**/project-activity-risks.spec.ts",
+        "**/meetings-and-actions.spec.ts",
       ],
     },
     {
@@ -74,6 +75,12 @@ export default defineConfig({
       dependencies: ["briefs"],
       use: { actionTimeout: 10_000 },
     },
+    {
+      name: "meetings",
+      testMatch: "**/meetings-and-actions.spec.ts",
+      dependencies: ["risks"],
+      use: { actionTimeout: 10_000 },
+    },
   ],
   webServer: {
     command: "pnpm dev",
@@ -86,6 +93,7 @@ export default defineConfig({
       OPENAI_API_KEY: "test-brief-key",
       OPENAI_BRIEF_MODEL: "brief-fixture",
       BRIEF_MODEL_TIMEOUT_MS: "700",
+      MEETING_TRANSCRIPTION_TIMEOUT_MS: "800",
     },
     url: `${baseURL}/api/health/ready`,
     timeout: 45_000,
