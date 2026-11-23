@@ -10,6 +10,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { AsyncState, Button, PageHeading } from "../../components/ui";
+import { ConnectorSettings } from "../connectors/connector-settings";
 import { NotificationPreferences } from "../inbox/preferences";
 import { SignOut } from "./access-pages";
 import { denied, errorMessage, read, request } from "./api";
@@ -295,6 +296,7 @@ export function WorkspaceSettings({
       {workspace.role === "admin" && (
         <>
           <Members workspaceId={workspace.id} actorId={actorId} />
+          <ConnectorSettings />
           <InvitationForm
             workspaceId={workspace.id}
             timeZone={workspace.timeZone}

@@ -1,4 +1,8 @@
-import { databaseUrlSchema } from "@kordos/db";
+import {
+  connectorKeySchema,
+  fixtureEndpointSchema,
+  databaseUrlSchema,
+} from "@kordos/db";
 import { z } from "zod";
 
 const configSchema = z.object({
@@ -15,6 +19,9 @@ const configSchema = z.object({
   STORAGE_BUCKET: z.string().regex(/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/),
   STORAGE_ACCESS_KEY_ID: z.string().trim().min(1),
   STORAGE_SECRET_ACCESS_KEY: z.string().trim().min(1),
+  CONNECTOR_TOKEN_KEY: connectorKeySchema.optional(),
+  CONNECTOR_FIXTURE_URL: fixtureEndpointSchema.optional(),
+  CONNECTOR_FIXTURE_WEBHOOK_SECRET: z.string().min(32).optional(),
   ENABLE_FOUNDATION_JOBS: z.stringbool().default(false),
 });
 

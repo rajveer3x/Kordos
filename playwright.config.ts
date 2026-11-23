@@ -27,6 +27,7 @@ export default defineConfig({
         "**/project-activity-risks.spec.ts",
         "**/meetings-and-actions.spec.ts",
         "**/inbox-and-deadlines.spec.ts",
+        "**/connectors.spec.ts",
       ],
     },
     {
@@ -88,6 +89,12 @@ export default defineConfig({
       dependencies: ["meetings"],
       use: { actionTimeout: 10_000 },
     },
+    {
+      name: "connectors",
+      testMatch: "**/connectors.spec.ts",
+      dependencies: ["inbox"],
+      use: { actionTimeout: 10_000 },
+    },
   ],
   webServer: {
     command: "pnpm dev",
@@ -99,6 +106,10 @@ export default defineConfig({
       OPENAI_BASE_URL: `http://127.0.0.1:${process.env.TEST_BRIEF_MODEL_PORT ?? 4429}/v1/`,
       OPENAI_API_KEY: "test-brief-key",
       OPENAI_BRIEF_MODEL: "brief-fixture",
+      CONNECTOR_TOKEN_KEY: Buffer.alloc(32, 13).toString("base64url"),
+      CONNECTOR_FIXTURE_URL: `http://127.0.0.1:${process.env.TEST_CONNECTOR_PORT ?? 4493}/`,
+      CONNECTOR_FIXTURE_WEBHOOK_SECRET:
+        "kordos-connector-fixture-signing-secret",
       INBOX_EMAIL_URL: `http://127.0.0.1:${process.env.TEST_INBOX_EMAIL_PORT ?? 4492}/emails`,
       INBOX_EMAIL_KEY: "local-sink",
       INBOX_EMAIL_FROM: "kordos@example.test",

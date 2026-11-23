@@ -4,6 +4,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { z } from "zod";
 import { briefsStore } from "./briefs.js";
+import { connectorStore } from "./connectors.js";
 import { collaborationStore } from "./collaboration.js";
 import { forecastStore } from "./forecast.js";
 import { inboxStore } from "./inbox.js";
@@ -15,6 +16,8 @@ import { risksStore } from "./risks.js";
 import { reviewsStore } from "./reviews.js";
 import { foundationJobEffects, foundationJobs } from "./schema.js";
 
+export { connectConnectorWorker, type ConnectorBatch } from "./connectors.js";
+export * from "./connector-credentials.js";
 export { connectInboxWorker, type InboxEmailJob } from "./inbox.js";
 export { connectMeetingWorker } from "./meetings.js";
 export { connectBriefWorker } from "./briefs.js";
@@ -60,6 +63,7 @@ export function connectDatabase(url: string) {
   return {
     briefs: briefsStore(client),
     collaboration: collaborationStore(client),
+    connectors: connectorStore(client),
     knowledge: knowledgeStore(client),
     meetings: meetingsStore(client),
     identity: identityStore(client),

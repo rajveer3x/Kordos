@@ -1,8 +1,8 @@
 # Delivery tracker
 
-**Current state** — Features 01 through 12 are verified locally.
+**Current state** — Features 01 through 13 are verified locally.
 
-**Next ready feature** — [13 · Connector management and ingestion](feature-specs/13-connector-runtime.md). Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
+**Next ready feature** — [14 · GitHub activity and approved comments](feature-specs/14-github-activity-and-actions.md). [Feature 15](feature-specs/15-calendar-and-gmail.md) also has its prerequisites met. Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
 
 | ID | Feature prompt | Depends on | State | Evidence |
 |---|---|---|---|---|
@@ -18,7 +18,7 @@
 | 10 | [Risks from project activity](feature-specs/10-risk-from-activity.md) | 05, 06, 08, 09 | Done | Forecast impact, author clarification, stale replan protection and approved commitment changes passed. See [Feature 10 evidence](#feature-10-evidence). |
 | 11 | [Meetings and accountable follow-up](feature-specs/11-meetings-and-actions.md) | 06, 07, 08, 09 | Done | Exact segment playback, reviewed follow-up, reprocessing and media retention passed. See [Feature 11 evidence](#feature-11-evidence). |
 | 12 | [Inbox and deadline delivery](feature-specs/12-inbox-and-deadlines.md) | 06, 08, 10 | Done | Quiet-hour rescheduling, read state sync, local email delivery and revocation checks passed. See [Feature 12 evidence](#feature-12-evidence). |
-| 13 | [Connector management and ingestion](feature-specs/13-connector-runtime.md) | 03, 04, 07 | Pending | — |
+| 13 | [Connector management and ingestion](feature-specs/13-connector-runtime.md) | 03, 04, 07 | Done | Delivery deduplication, checkpoint recovery, private-source isolation and disconnect passed. See [Feature 13 evidence](#feature-13-evidence). |
 | 14 | [GitHub activity and approved comments](feature-specs/14-github-activity-and-actions.md) | 08, 13 | Pending | — |
 | 15 | [Calendar events and shared email](feature-specs/15-calendar-and-gmail.md) | 11, 13 | Pending | — |
 | 16 | [Permission-aware hybrid search](feature-specs/16-hybrid-search.md) | 07, 11, 14, 15 | Pending | — |
@@ -262,3 +262,20 @@ Verified on 2026-11-23 with Node 26.5.0, pnpm 10.34.9, Chromium, a loopback OIDC
 Deadlines use the project timezone and the explicit deadline, with the milestone commitment as fallback. Reminders default to 09:00 one calendar day before the deadline. Escalation defaults to two calendar days after the deadline becomes overdue. Members can set lead times, quiet hours, delivery timezone and a channel for each notification type. The daily digest runs at 08:00 recipient time and links to the authorized entries for its delivery day. See [inbox configuration](../README.md#inbox-delivery) for the local sink and email settings.
 
 All local Feature 12 acceptance checks passed. Live email provider verification remains a staging check. Feature 13 is ready.
+
+## Feature 13 evidence
+
+Verified on 2026-11-23 with Node 26.5.0, pnpm 10.34.9, Chromium, a loopback OIDC issuer and connector adapter, and isolated PostgreSQL, Redis and S3-compatible storage.
+
+| Check | Result |
+|---|---|
+| `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm build`, `git diff --check` | Passed, including 17 Vitest tests. The build reported the existing Zod annotation and Vite entry-chunk size warnings. |
+| `pnpm db:migrate` twice and `pnpm db:generate` | Fresh and repeat migrations passed. Drizzle found no schema changes. Upgrading the local Feature 12 database preserved the project, work item, document and inbox counts. |
+| `pnpm test:e2e --workers=3 --trace=on --output=test-results/feature-13-full` | All 20 Chromium tests passed. The [Feature 13 journey](../tests/e2e/connectors.spec.ts) added a second scope, paused and resumed syncing, and removed the mapping without affecting its neighbor. Settings reflow passed at 1440, 1024, 390 and 320 CSS px. Desktop and mobile trace frames showed redacted private health. |
+| Delivery and recovery | A signed delivery replay returned the same receipt and one revision. An invalid signature was rejected, a conflicting replay returned 409, and an older revision left the current snapshot in place. A failed second page preserved the previous checkpoint and published none of the staged changes. An expired checkpoint triggered full reconciliation and recovered the same source ID. |
+| Credential and audience boundaries | The persisted grant was encrypted. A revoked token paused its installation and left a neighboring connection healthy. Replacing the token restored the existing mapping. A workspace admin outside the private project could diagnose health without mirrored text, private project metadata or provider scope. Direct runtime access to credentials, mirrored text and worker job claims was denied. |
+| Disconnect and shares | Disconnect made an open mirror unavailable and canceled queued outbound intent while mirror text still awaited cleanup. Deferred cleanup removed the original body. An approved excerpt stayed visible to project members until its sharer revoked it. |
+
+Connection owners can map scopes to projects where they are leads. Admins can see and manage connection health across the workspace. A private provider grant restricts a mirror to the owner with project access. The worker reconciles active scopes every five minutes and mirror verification expires after ten minutes. Disconnect queues cleanup for five minutes later. The [connector setup](../README.md#connector-runtime) documents the fixture protocol. Live GitHub and Google adapters are covered by Features 14 and 15.
+
+All local Feature 13 acceptance checks passed. Feature 14 is ready.

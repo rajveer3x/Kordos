@@ -7,6 +7,7 @@ import {
 import { connectDatabase } from "@kordos/db";
 import Fastify from "fastify";
 import { Redis } from "ioredis";
+import { registerConnectorIngress } from "./connectors/ingress.js";
 import { loadConfig } from "./config.js";
 import { registerIdentity } from "./identity/routes.js";
 
@@ -105,6 +106,17 @@ if (config.ENABLE_FOUNDATION_JOBS) {
 }
 
 registerIdentity(app, config, redis, db, storage);
+if (
+  config.CONNECTOR_FIXTURE_WEBHOOK_SECRET &&
+  config.CONNECTOR_FIXTURE_URL &&
+  config.CONNECTOR_TOKEN_KEY
+) {
+  registerConnectorIngress(
+    app,
+    db.connectors,
+    config.CONNECTOR_FIXTURE_WEBHOOK_SECRET,
+  );
+}
 
 app.addHook("onClose", async () => {
   redis.disconnect();

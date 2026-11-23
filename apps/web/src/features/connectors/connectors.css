@@ -1,0 +1,34 @@
+.connector-list,
+.connector-rows {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.connector-rows > li {
+  border-block-start: 1px solid var(--hairline);
+  padding-block-start: var(--space-3);
+}
+
+#connectors details {
+  min-width: 0;
+}
+
+#connectors summary {
+  cursor: pointer;
+  color: var(--action);
+}
+
+#connectors details > form {
+  margin-block-start: var(--space-3);
+}
+
+.connector-passage {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+  padding: var(--space-4);
+}

@@ -1,5 +1,9 @@
 import { Link, Route, Routes } from "react-router";
 import { AsyncState } from "../../components/ui";
+import {
+  ConnectorSourcePage,
+  ConnectorSources,
+} from "../connectors/connector-sources";
 import { DecisionEditor, DecisionPage, Decisions } from "./decisions";
 import { DocumentEditor, DocumentPage, Documents } from "./documents";
 import { EvidencePage } from "./evidence";
@@ -11,6 +15,8 @@ export default function ProjectKnowledge() {
     <Routes>
       <Route index element={<Documents />} />
       <Route path="new" element={<DocumentEditor />} />
+      <Route path="sources" element={<ConnectorSources />} />
+      <Route path="sources/:sourceId" element={<ConnectorSourcePage />} />
       <Route path=":documentId" element={<DocumentPage />} />
       <Route
         path=":documentId/revisions/:revision"

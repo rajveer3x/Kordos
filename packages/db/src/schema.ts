@@ -1412,3 +1412,252 @@ export const inboxEntries = pgTable(
       ),
   ],
 );
+
+export const connectorInstallations = pgTable(
+  "connector_installations",
+  {
+    id: uuid().primaryKey(),
+    workspaceId: uuid("workspace_id").notNull(),
+    ownerId: uuid("owner_id").notNull(),
+    label: text().notNull(),
+    provider: text().notNull(),
+    credential: text(),
+    state: text().notNull().default("enabled"),
+    version: integer().notNull().default(1),
+    issue: text(),
+    lastSuccess: timestamp("last_success", { withTimezone: true }),
+  },
+  (table) => [
+    unique().on(table.workspaceId, table.id),
+    foreignKey({
+      name: "connector_installations_owner_fk",
+      columns: [table.workspaceId, table.ownerId],
+      foreignColumns: [memberships.workspaceId, memberships.userId],
+    }),
+    check(
+      "connector_installations_state",
+      sql`${table.state} IN ('enabled','paused','disconnected')`,
+    ),
+  ],
+);
+export const connectorMappings = pgTable(
+  "connector_mappings",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    installationId: uuid("installation_id").notNull(),
+    scope: text().notNull(),
+    projectId: uuid("project_id").notNull(),
+    audience: text().notNull(),
+    providerAudience: text("provider_audience"),
+    verifiedUntil: timestamp("verified_until", { withTimezone: true }),
+    checkpoint: text(),
+    lastSuccess: timestamp("last_success", { withTimezone: true }),
+    nextSync: timestamp("next_sync", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (table) => [
+    unique().on(table.workspaceId, table.installationId, table.id),
+    unique().on(
+      table.workspaceId,
+      table.installationId,
+      table.id,
+      table.projectId,
+    ),
+    uniqueIndex("connector_mappings_active_scope")
+      .on(table.installationId, table.scope)
+      .where(sql`${table.revokedAt} IS NULL`),
+    foreignKey({
+      name: "connector_mappings_installation_fk",
+      columns: [table.workspaceId, table.installationId],
+      foreignColumns: [
+        connectorInstallations.workspaceId,
+        connectorInstallations.id,
+      ],
+    }),
+    foreignKey({
+      name: "connector_mappings_project_fk",
+      columns: [table.workspaceId, table.projectId],
+      foreignColumns: [projects.workspaceId, projects.id],
+    }),
+    check(
+      "connector_mappings_audience",
+      sql`${table.audience} IN ('project','private') AND ${table.providerAudience} IN ('project','private')`,
+    ),
+  ],
+);
+export const connectorJobs = pgTable(
+  "connector_jobs",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    installationId: uuid("installation_id").notNull(),
+    mappingId: uuid("mapping_id"),
+    kind: text().notNull(),
+    state: text().notNull().default("queued"),
+    deliveryId: text("delivery_id"),
+    deliveryHash: text("delivery_hash"),
+    payload: jsonb(),
+    attempts: integer().notNull().default(0),
+    generation: integer().notNull().default(1),
+    lease: uuid(),
+    leaseUntil: timestamp("lease_until", { withTimezone: true }),
+    availableAt: timestamp("available_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+  },
+  (table) => [
+    unique().on(table.installationId, table.deliveryId),
+    uniqueIndex("connector_jobs_active_sync")
+      .on(table.mappingId)
+      .where(
+        sql`${table.kind} = 'sync' AND ${table.state} IN ('queued','running')`,
+      ),
+    index("connector_jobs_pending")
+      .on(table.availableAt, table.installationId, table.id)
+      .where(sql`${table.state} IN ('queued','running')`),
+    foreignKey({
+      name: "connector_jobs_installation_fk",
+      columns: [table.workspaceId, table.installationId],
+      foreignColumns: [
+        connectorInstallations.workspaceId,
+        connectorInstallations.id,
+      ],
+    }),
+    foreignKey({
+      name: "connector_jobs_mapping_fk",
+      columns: [table.workspaceId, table.installationId, table.mappingId],
+      foreignColumns: [
+        connectorMappings.workspaceId,
+        connectorMappings.installationId,
+        connectorMappings.id,
+      ],
+    }),
+    check(
+      "connector_jobs_state",
+      sql`${table.state} IN ('queued','running','succeeded','failed','canceled')`,
+    ),
+    check(
+      "connector_jobs_kind",
+      sql`(${table.kind} = 'cleanup' OR ${table.mappingId} IS NOT NULL)
+      AND ${table.kind} IN ('sync','delivery','cleanup','outbound')`,
+    ),
+  ],
+);
+export const sourceObjects = pgTable(
+  "source_objects",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    installationId: uuid("installation_id").notNull(),
+    mappingId: uuid("mapping_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    externalId: text("external_id").notNull(),
+    revision: integer().notNull().default(0),
+    withdrawnAt: timestamp("withdrawn_at", { withTimezone: true }),
+  },
+  (table) => [
+    unique().on(table.workspaceId, table.projectId, table.id),
+    unique().on(table.mappingId, table.externalId),
+    foreignKey({
+      name: "source_objects_mapping_fk",
+      columns: [
+        table.workspaceId,
+        table.installationId,
+        table.mappingId,
+        table.projectId,
+      ],
+      foreignColumns: [
+        connectorMappings.workspaceId,
+        connectorMappings.installationId,
+        connectorMappings.id,
+        connectorMappings.projectId,
+      ],
+    }),
+  ],
+);
+export const sourceRevisions = pgTable(
+  "source_revisions",
+  {
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    sourceId: uuid("source_id").notNull(),
+    revision: integer().notNull(),
+    revisionKey: text("revision_key").notNull(),
+    observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
+    title: text(),
+    body: text(),
+    url: text(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [
+        table.workspaceId,
+        table.projectId,
+        table.sourceId,
+        table.revision,
+      ],
+    }),
+    unique().on(table.sourceId, table.revisionKey),
+    foreignKey({
+      name: "source_revisions_source_fk",
+      columns: [table.workspaceId, table.projectId, table.sourceId],
+      foreignColumns: [
+        sourceObjects.workspaceId,
+        sourceObjects.projectId,
+        sourceObjects.id,
+      ],
+    }),
+  ],
+);
+export const connectorShares = pgTable(
+  "connector_shares",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    sourceId: uuid("source_id").notNull(),
+    revision: integer().notNull(),
+    sharerId: uuid("sharer_id").notNull(),
+    title: text().notNull(),
+    excerpt: text().notNull(),
+    url: text(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (table) => [
+    foreignKey({
+      name: "connector_shares_revision_fk",
+      columns: [
+        table.workspaceId,
+        table.projectId,
+        table.sourceId,
+        table.revision,
+      ],
+      foreignColumns: [
+        sourceRevisions.workspaceId,
+        sourceRevisions.projectId,
+        sourceRevisions.sourceId,
+        sourceRevisions.revision,
+      ],
+    }),
+    foreignKey({
+      name: "connector_shares_sharer_fk",
+      columns: [table.workspaceId, table.sharerId],
+      foreignColumns: [memberships.workspaceId, memberships.userId],
+    }),
+    index("connector_shares_project_idx").on(
+      table.workspaceId,
+      table.projectId,
+      table.id,
+    ),
+  ],
+);

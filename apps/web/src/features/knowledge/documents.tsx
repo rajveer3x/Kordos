@@ -87,6 +87,7 @@ export function Documents() {
     <section className="planning-panel glass-panel knowledge-panel">
       <KnowledgeHeading title="Documents">
         <Link to={base + "/decisions"}>Decision register</Link>
+        <Link to={base + "/sources"}>External sources</Link>
         {writable && (
           <Link className="button button--primary" to={base + "/new"}>
             Create document

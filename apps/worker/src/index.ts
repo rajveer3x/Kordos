@@ -5,12 +5,18 @@ import {
   foundationQueue,
   type FoundationJobPayload,
 } from "@kordos/contracts";
-import { connectDatabase, databaseUrlSchema } from "@kordos/db";
+import {
+  connectDatabase,
+  connectorKeySchema,
+  databaseUrlSchema,
+  fixtureEndpointSchema,
+} from "@kordos/db";
 import { runFoundationJob } from "@kordos/domain";
 import { Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { z } from "zod";
 import { startBriefs } from "./briefs.js";
+import { startConnectors } from "./connectors/worker.js";
 import { startInbox } from "./inbox.js";
 import { startMeetings } from "./meetings.js";
 import { startRisks } from "./risks.js";
@@ -46,6 +52,8 @@ const config = z
       .min(50)
       .max(30000)
       .default(12000),
+    CONNECTOR_TOKEN_KEY: connectorKeySchema.optional(),
+    CONNECTOR_FIXTURE_URL: fixtureEndpointSchema.optional(),
     INBOX_EMAIL_URL: z.url({ protocol: /^https?$/ }).optional(),
     INBOX_EMAIL_KEY: z.string().min(1).optional(),
     INBOX_EMAIL_FROM: z.string().min(1).optional(),
@@ -125,6 +133,21 @@ const approvals = startApprovals(
   reportRedisError,
 );
 const settings = config.data;
+const connectors =
+  settings.BRIEF_WORKER_DATABASE_URL &&
+  settings.CONNECTOR_TOKEN_KEY &&
+  settings.CONNECTOR_FIXTURE_URL
+    ? startConnectors(
+        settings.BRIEF_WORKER_DATABASE_URL,
+        {
+          key: settings.CONNECTOR_TOKEN_KEY,
+          fixtureEndpoint: settings.CONNECTOR_FIXTURE_URL,
+        },
+        producer,
+        consumer,
+        reportRedisError,
+      )
+    : undefined;
 const briefs = settings.BRIEF_WORKER_DATABASE_URL
   ? startBriefs(
       settings.BRIEF_WORKER_DATABASE_URL,
@@ -216,6 +239,7 @@ async function dispatchPendingJobs(signal: AbortSignal) {
         await risks.dispatch(signal);
         await briefs?.dispatch(signal);
         await meetings?.dispatch(signal);
+        await connectors?.dispatch(signal);
         dispatchFailed = false;
       }
     } catch (error) {
@@ -247,6 +271,7 @@ async function stop() {
       risks.close(),
       briefs?.close(),
       meetings?.close(),
+      connectors?.close(),
       inbox,
     ]);
     await queue.close();
