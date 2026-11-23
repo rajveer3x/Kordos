@@ -3,6 +3,7 @@ import {
   fixtureEndpointSchema,
   databaseUrlSchema,
 } from "@kordos/db";
+import { githubBindingsSchema } from "@kordos/contracts";
 import { z } from "zod";
 
 const configSchema = z.object({
@@ -22,6 +23,8 @@ const configSchema = z.object({
   CONNECTOR_TOKEN_KEY: connectorKeySchema.optional(),
   CONNECTOR_FIXTURE_URL: fixtureEndpointSchema.optional(),
   CONNECTOR_FIXTURE_WEBHOOK_SECRET: z.string().min(32).optional(),
+  GITHUB_INSTALLATIONS: githubBindingsSchema.optional(),
+  GITHUB_WEBHOOK_SECRET: z.string().min(32).optional(),
   ENABLE_FOUNDATION_JOBS: z.stringbool().default(false),
 });
 

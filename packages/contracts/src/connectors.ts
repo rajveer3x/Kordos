@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  githubIdSchema,
+  githubRepositorySchema,
+  githubSourceSchema,
+} from "./github.js";
 import { idSchema } from "./identity.js";
 
 const instant = z.iso.datetime({ offset: true });
@@ -9,7 +14,7 @@ const opaque = z
   .min(1)
   .max(512)
   .refine((value) => !value.includes("\0"));
-export const connectorProviderSchema = z.enum(["fixture"]);
+export const connectorProviderSchema = z.enum(["fixture", "github"]);
 export const connectorAudienceSchema = z.enum(["project", "private"]);
 export const connectorStatusSchema = z.enum([
   "paused",
@@ -38,16 +43,19 @@ const mapping = z.object({
   projectId: idSchema,
   audience: connectorAudienceSchema,
 });
-export const createConnectorSchema = mapping.extend({
-  mutationId: idSchema,
-  label,
-  provider: connectorProviderSchema,
-  token,
-});
+const create = mapping.extend({ mutationId: idSchema, label });
+export const createConnectorSchema = z.discriminatedUnion("provider", [
+  create.extend({ provider: z.literal("fixture"), token }),
+  create.extend({
+    provider: z.literal("github"),
+    installationId: githubIdSchema,
+    scope: githubRepositorySchema,
+  }),
+]);
 const command = z.object({ mutationId: idSchema, expectedVersion: positive });
 export const connectorCommandSchema = z.discriminatedUnion("action", [
   command.extend({ action: z.enum(["pause", "resume", "sync", "disconnect"]) }),
-  command.extend({ action: z.literal("reconnect"), token }),
+  command.extend({ action: z.literal("reconnect"), token: token.optional() }),
   command.merge(mapping).extend({ action: z.literal("map") }),
   command.extend({ action: z.literal("unmap"), mappingId: idSchema }),
 ]);
@@ -77,6 +85,8 @@ export const connectorSchema = z.object({
 });
 export const connectorDirectorySchema = z.object({
   enabled: z.boolean(),
+  fixtureEnabled: z.boolean(),
+  githubInstallations: z.array(githubIdSchema),
   items: z.array(connectorSchema),
   destinations: z.array(z.object({ id: idSchema, name: z.string() })),
 });
@@ -106,6 +116,7 @@ export const connectorChangeSchema = z.discriminatedUnion("kind", [
       .max(16000)
       .refine((value) => !value.includes("\0")),
     url: providerLink,
+    github: githubSourceSchema.optional(),
   }),
   z.object({ ...sourceFields, kind: z.literal("delete") }),
 ]);
@@ -141,10 +152,19 @@ export const connectorClaimSchema = z.discriminatedUnion("kind", [
     workspaceId: idSchema,
     installationId: idSchema,
     provider: connectorProviderSchema,
-    credential: z.string(),
+    credential: z.string().nullable(),
+    githubInstallation: githubIdSchema.nullable().optional(),
     scope: connectorScopeSchema,
     checkpoint: opaque.nullable(),
     delivery: connectorDeliverySchema.nullable(),
+    githubDelivery: z
+      .object({
+        kind: z.enum(["issue", "pull"]),
+        number: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+        repositoryId: githubIdSchema,
+      })
+      .nullable()
+      .optional(),
   }),
 ]);
 
@@ -166,6 +186,14 @@ export const connectorSourceSchema = sourceSummary.extend({
   canShare: z.boolean(),
   canRevoke: z.boolean(),
   sharedBy: z.string().nullable(),
+  github: githubSourceSchema.nullable().optional(),
+  canDraftComment: z.boolean().optional(),
+  canLinkWork: z.boolean().optional(),
+  linkedWork: z
+    .array(
+      z.object({ id: idSchema, title: z.string(), confirmed: z.boolean() }),
+    )
+    .optional(),
 });
 export const connectorShareSchema = z.object({
   mutationId: idSchema,

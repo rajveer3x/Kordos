@@ -67,6 +67,9 @@ const issueMessage: Record<
     "An event already exists for this execution. Verify the work item and its audit history before attempting another change.",
   risk_stale:
     "The delay report or schedule changed before execution. Refresh the associated risk to submit a new replan.",
+  destination_unavailable:
+    "The GitHub destination is no longer available for this approval.",
+  provider_refused: "GitHub refused to publish this comment.",
   worker_failed:
     "The system could not apply this change. Review the latest work version before submitting a new revision.",
 };
@@ -165,7 +168,9 @@ export function ReviewsPage() {
                           ? "Create project plan"
                           : item.kind === "meeting"
                             ? "Meeting follow-up"
-                            : `Edit ${item.kind}`}{" "}
+                            : item.kind === "github"
+                              ? "Publish GitHub comment"
+                              : `Edit ${item.kind}`}{" "}
                         · {item.title}
                       </Link>
                       <span>
@@ -291,10 +296,14 @@ function ReviewDetails({
       ? `${projectBase}/briefs/${proposal.briefId}`
       : proposal.kind === "meeting"
         ? `${projectBase}/meetings/${proposal.meetingId}`
-        : `${projectBase}/work/${proposal.workId}`;
+        : proposal.kind === "github"
+          ? proposal.githubSourceId &&
+            `${projectBase}/documents/sources/${proposal.githubSourceId}?revision=${proposal.targetVersion}`
+          : `${projectBase}/work/${proposal.workId}`;
   const receipt = proposal.receipt;
   const targetChanged =
     current &&
+    proposal.kind !== "github" &&
     proposal.currentTargetVersion !== proposal.targetVersion &&
     ["draft", "pending"].includes(proposal.status);
 
@@ -328,7 +337,9 @@ function ReviewDetails({
             ? `Plan from ${proposal.title}`
             : proposal.kind === "meeting"
               ? `Review ${proposal.meetingItem?.kind ?? "follow-up"} · ${proposal.title}`
-              : `Edit ${proposal.kind} · ${proposal.before?.title ?? proposal.title}`
+              : proposal.kind === "github"
+                ? "Publish GitHub comment"
+                : `Edit ${proposal.kind} · ${proposal.before?.title ?? proposal.title}`
         }
       />
       <section className="glass-panel planning-panel">
@@ -352,10 +363,16 @@ function ReviewDetails({
                 ? "Source brief"
                 : proposal.kind === "meeting"
                   ? "Source meeting"
-                  : `Affected ${proposal.kind}`}
+                  : proposal.kind === "github"
+                    ? "GitHub source"
+                    : `Affected ${proposal.kind}`}
             </dt>
             <dd>
-              <Link to={target}>{proposal.title}</Link>
+              {target ? (
+                <Link to={target}>{proposal.title}</Link>
+              ) : (
+                "Unavailable"
+              )}
             </dd>
           </div>
           <div>
@@ -370,12 +387,14 @@ function ReviewDetails({
               {proposal.revision} · {proposal.author.name}
             </dd>
           </div>
-          {proposal.kind !== "plan" && proposal.kind !== "meeting" && (
-            <div>
-              <dt>Work version under review</dt>
-              <dd>{proposal.targetVersion}</dd>
-            </div>
-          )}
+          {proposal.kind !== "plan" &&
+            proposal.kind !== "meeting" &&
+            proposal.kind !== "github" && (
+              <div>
+                <dt>Work version under review</dt>
+                <dd>{proposal.targetVersion}</dd>
+              </div>
+            )}
           <div>
             <dt>Expires</dt>
             <dd>
@@ -430,7 +449,11 @@ function ReviewDetails({
           </p>
         )}
         {receipt?.issue && (
-          <p className="planning-conflict">{issueMessage[receipt.issue]}</p>
+          <p className="planning-conflict">
+            {receipt.issue === "ambiguous_effect" && proposal.kind === "github"
+              ? "GitHub may have accepted this comment. Check the destination and audit history for the delivery reference."
+              : issueMessage[receipt.issue]}
+          </p>
         )}
         <section className="review-section">
           <h2>
@@ -438,9 +461,41 @@ function ReviewDetails({
               ? "Proposed tasks and dependencies"
               : proposal.kind === "meeting"
                 ? "Proposed follow-up"
-                : "Work item changes"}
+                : proposal.kind === "github"
+                  ? "GitHub destination and comment"
+                  : "Work item changes"}
           </h2>
-          {proposal.kind === "plan" && proposal.plan ? (
+          {proposal.kind === "github" && proposal.githubComment ? (
+            <>
+              <dl className="planning-facts">
+                <div>
+                  <dt>Repository</dt>
+                  <dd>{proposal.githubComment.destination.repository}</dd>
+                </div>
+                <div>
+                  <dt>Destination</dt>
+                  <dd>
+                    <a
+                      href={`https://github.com/${proposal.githubComment.destination.repository}/${proposal.githubComment.destination.kind === "pull" ? "pull" : "issues"}/${proposal.githubComment.destination.number}`}
+                      rel="noreferrer"
+                    >
+                      {proposal.githubComment.destination.kind === "pull"
+                        ? "Pull request"
+                        : "Issue"}{" "}
+                      #{proposal.githubComment.destination.number}
+                    </a>
+                  </dd>
+                </div>
+              </dl>
+              <h3>Exact outgoing Markdown</h3>
+              <pre className="review-comment-body">
+                {proposal.githubComment.body}
+              </pre>
+              <p className="planning-help">
+                Kordos uses this delivery reference to verify publication.
+              </p>
+            </>
+          ) : proposal.kind === "plan" && proposal.plan ? (
             <PlanPreview
               plan={proposal.plan}
               owners={proposal.owners}
@@ -508,6 +563,7 @@ function ReviewDetails({
             </>
           ) : proposal.kind !== "plan" &&
             proposal.kind !== "meeting" &&
+            proposal.kind !== "github" &&
             proposal.before &&
             proposal.after ? (
             <ReviewDiff
@@ -522,27 +578,29 @@ function ReviewDetails({
             </p>
           )}
         </section>
-        <section className="review-section">
-          <h2>Evidence</h2>
-          {(proposal.kind === "plan"
-            ? proposal.evidence.slice(0, 1)
-            : proposal.evidence
-          ).map((entry, index) => (
-            <EvidencePassage
-              key={citationPath(workspace.id, entry.source) + index}
-              entry={entry}
-            />
-          ))}
-          {proposal.evidenceRestricted ? (
-            <p className="planning-help">
-              Some evidence changed or is unavailable.
-            </p>
-          ) : (
-            !proposal.evidence.length && (
-              <p className="planning-help">No evidence was attached.</p>
-            )
-          )}
-        </section>
+        {proposal.kind !== "github" && (
+          <section className="review-section">
+            <h2>Evidence</h2>
+            {(proposal.kind === "plan"
+              ? proposal.evidence.slice(0, 1)
+              : proposal.evidence
+            ).map((entry, index) => (
+              <EvidencePassage
+                key={citationPath(workspace.id, entry.source) + index}
+                entry={entry}
+              />
+            ))}
+            {proposal.evidenceRestricted ? (
+              <p className="planning-help">
+                Some evidence changed or is unavailable.
+              </p>
+            ) : (
+              !proposal.evidence.length && (
+                <p className="planning-help">No evidence was attached.</p>
+              )
+            )}
+          </section>
+        )}
         {receipt && (
           <section className="review-section">
             <h2>Approval receipt</h2>
@@ -557,6 +615,11 @@ function ReviewDetails({
               </p>
             )}
             <div className="planning-actions">
+              {receipt.remote && (
+                <a href={receipt.remote.url} rel="noreferrer">
+                  Open published comment
+                </a>
+              )}
               <Link
                 to={workspacePath(
                   `/audit?eventId=${receipt.auditId}`,
@@ -576,7 +639,9 @@ function ReviewDetails({
                     ? "Open applied plan in audit history"
                     : proposal.kind === "meeting"
                       ? "Open approved follow-up in audit history"
-                      : "Open applied work edit"}
+                      : proposal.kind === "github"
+                        ? "Open publication in audit history"
+                        : "Open applied work edit"}
                 </Link>
               )}
             </div>
@@ -592,14 +657,22 @@ function ReviewDetails({
               path={path}
               onClose={() => setEditor(undefined)}
             />
-          ) : (
+          ) : editor.kind === "github" && editor.githubComment ? (
+            <GitHubCommentEditor
+              body={editor.githubComment.message}
+              precondition={precondition}
+              path={path}
+              onClose={() => setEditor(undefined)}
+              head={head}
+            />
+          ) : editor.kind !== "github" ? (
             <ProposalEditor
               proposal={editor}
               head={head}
               path={path}
               onClose={() => setEditor(undefined)}
             />
-          ))}
+          ) : null)}
         {decision && proposal.canReview && (
           <form
             className="planning-form"
@@ -658,7 +731,11 @@ function ReviewDetails({
                   disabled={command.busy}
                   onClick={() => review("approve")}
                 >
-                  {proposal.kind === "plan" ? "Approve plan" : "Approve change"}
+                  {proposal.kind === "plan"
+                    ? "Approve plan"
+                    : proposal.kind === "github"
+                      ? "Approve comment"
+                      : "Approve change"}
                 </Button>
               )}
               {proposal.canEdit && (
@@ -797,7 +874,7 @@ function ProposalEditor({
   path,
   onClose,
 }: {
-  proposal: Exclude<ProposalDetail, { kind: "plan" | "meeting" }>;
+  proposal: Exclude<ProposalDetail, { kind: "plan" | "meeting" | "github" }>;
   head: string;
   path: string;
   onClose: () => void;
@@ -908,5 +985,60 @@ function ProposalEditor({
         />
       )}
     </section>
+  );
+}
+
+function GitHubCommentEditor({
+  body,
+  precondition,
+  path,
+  head,
+  onClose,
+}: {
+  body: string;
+  precondition: { revision: number; expectedVersion: number };
+  path: string;
+  head: string;
+  onClose: () => void;
+}) {
+  const [draft, setDraft] = useState(body);
+  const command = usePlanningCommand();
+  const navigate = useNavigate();
+  return (
+    <form
+      className="planning-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void command.save(
+          path,
+          "PATCH",
+          { ...precondition, body: draft },
+          () => {
+            navigate(head, { replace: true });
+            onClose();
+          },
+        );
+      }}
+    >
+      <label>
+        Comment body
+        <textarea
+          required
+          rows={5}
+          maxLength={12000}
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+        />
+      </label>
+      <div className="planning-actions">
+        <Button type="submit" disabled={command.busy || !draft.trim()}>
+          Save revision
+        </Button>
+        <Button variant="quiet" onClick={onClose}>
+          Cancel
+        </Button>
+      </div>
+      {command.error && <p role="alert">{command.error.message}</p>}
+    </form>
   );
 }

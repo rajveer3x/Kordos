@@ -1,3 +1,4 @@
+import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { defineConfig } from "@playwright/test";
 import {
   issuer,
@@ -6,6 +7,13 @@ import {
 } from "./tests/e2e/oidc-fixture.js";
 
 const baseURL = `http://127.0.0.1:${process.env.WEB_PORT ?? 4317}`;
+
+const githubWorkspace = (process.env.TEST_GITHUB_WORKSPACE ??= randomUUID());
+const githubKey = (process.env.TEST_GITHUB_KEY ??= generateKeyPairSync("rsa", {
+  modulusLength: 2048,
+})
+  .privateKey.export({ format: "pem", type: "pkcs8" })
+  .toString());
 
 export default defineConfig({
   testDir: "tests/e2e",
@@ -28,6 +36,7 @@ export default defineConfig({
         "**/meetings-and-actions.spec.ts",
         "**/inbox-and-deadlines.spec.ts",
         "**/connectors.spec.ts",
+        "**/github-activity-and-actions.spec.ts",
       ],
     },
     {
@@ -95,6 +104,12 @@ export default defineConfig({
       dependencies: ["inbox"],
       use: { actionTimeout: 10_000 },
     },
+    {
+      name: "github",
+      testMatch: "**/github-activity-and-actions.spec.ts",
+      dependencies: ["connectors"],
+      use: { actionTimeout: 10_000 },
+    },
   ],
   webServer: {
     command: "pnpm dev",
@@ -110,6 +125,11 @@ export default defineConfig({
       CONNECTOR_FIXTURE_URL: `http://127.0.0.1:${process.env.TEST_CONNECTOR_PORT ?? 4493}/`,
       CONNECTOR_FIXTURE_WEBHOOK_SECRET:
         "kordos-connector-fixture-signing-secret",
+      GITHUB_APP_ID: "4455",
+      GITHUB_APP_PRIVATE_KEY: githubKey,
+      GITHUB_INSTALLATIONS: JSON.stringify({ "8801": githubWorkspace }),
+      GITHUB_FIXTURE_URL: `http://127.0.0.1:${process.env.TEST_GITHUB_PORT ?? 4494}/`,
+      GITHUB_WEBHOOK_SECRET: "kordos-local-github-webhook-signing-secret",
       INBOX_EMAIL_URL: `http://127.0.0.1:${process.env.TEST_INBOX_EMAIL_PORT ?? 4492}/emails`,
       INBOX_EMAIL_KEY: "local-sink",
       INBOX_EMAIL_FROM: "kordos@example.test",

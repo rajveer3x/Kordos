@@ -13,6 +13,8 @@ import { denied, errorMessage, read, request } from "../identity/api";
 import { KnowledgeHeading } from "../knowledge/documents";
 import { useKnowledge } from "../knowledge/knowledge-client";
 import { planningRefresh } from "../planning/planning-client";
+import { GitHubSourceActions } from "./github-source-actions";
+import { githubStateLabels } from "./github-activity";
 import "./connectors.css";
 
 export function ConnectorSources() {
@@ -227,11 +229,50 @@ export function ConnectorSourcePage() {
         />
       ) : (
         <>
+          {query.data.github && query.data.revision > 1 && (
+            <nav
+              className="planning-actions"
+              aria-label="GitHub source revisions"
+            >
+              <Link
+                to={`${base}/sources/${query.data.id}?revision=${query.data.revision - 1}`}
+              >
+                Previous revision
+              </Link>
+              {revision && (
+                <Link to={`${base}/sources/${query.data.id}`}>
+                  Latest revision
+                </Link>
+              )}
+            </nav>
+          )}
           <KnowledgeHeading title={query.data.title}>
             <StatusLabel>
-              {query.data.kind === "share" ? "Shared excerpt" : "Mirror"}
+              {query.data.github
+                ? githubStateLabels[query.data.github.state]
+                : query.data.kind === "share"
+                  ? "Shared excerpt"
+                  : "Mirror"}
             </StatusLabel>
           </KnowledgeHeading>
+          {query.data.github && (
+            <p className="planning-help">
+              {query.data.github.repository} #{query.data.github.number} ·{" "}
+              {query.data.github.kind === "pull" ? "Pull request" : "Issue"}
+              {query.data.github.pull?.draft &&
+                query.data.github.state === "open" &&
+                " · Draft"}
+              {query.data.github.pull?.headSha && (
+                <>
+                  {" "}
+                  · Head{" "}
+                  <code title={query.data.github.pull.headSha}>
+                    {query.data.github.pull.headSha.slice(0, 12)}
+                  </code>
+                </>
+              )}
+            </p>
+          )}
           <p className="planning-help">
             {query.data.sharedBy && <>Shared by {query.data.sharedBy} · </>}
             Revision {query.data.revision} ·{" "}
@@ -246,6 +287,9 @@ export function ConnectorSourcePage() {
             <a href={query.data.url} rel="noreferrer">
               Open at provider
             </a>
+          )}
+          {query.data.github && (
+            <GitHubSourceActions key={query.data.id} source={query.data} />
           )}
           <SourceActions
             key={query.data.id + "/" + query.data.revision}

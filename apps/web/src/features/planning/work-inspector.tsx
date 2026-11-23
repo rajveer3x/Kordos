@@ -16,6 +16,7 @@ import {
 import { Sheet } from "../../components/sheet";
 import { AsyncState, Button, StatusLabel } from "../../components/ui";
 import { workspacePath } from "../workspace/workspace-model";
+import { GitHubActivity } from "../connectors/github-activity";
 import { DiscussionPanel } from "../collaboration/discussion-panel";
 import { denied, read } from "../identity/api";
 import {
@@ -310,6 +311,7 @@ function WorkDetails({
           </p>
         </>
       )}
+      <GitHubActivity projectId={item.projectId} workId={item.id} />
       <DiscussionPanel
         projectId={item.projectId}
         subject={{ kind: "task", id: item.id }}

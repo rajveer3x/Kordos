@@ -3,6 +3,8 @@ import { setTimeout as delay } from "node:timers/promises";
 import {
   foundationJobKind,
   foundationQueue,
+  githubBindingsSchema,
+  githubIdSchema,
   type FoundationJobPayload,
 } from "@kordos/contracts";
 import {
@@ -54,6 +56,12 @@ const config = z
       .default(12000),
     CONNECTOR_TOKEN_KEY: connectorKeySchema.optional(),
     CONNECTOR_FIXTURE_URL: fixtureEndpointSchema.optional(),
+    GITHUB_APP_ID: githubIdSchema.optional(),
+    GITHUB_APP_PRIVATE_KEY: z.string().min(1).optional(),
+    GITHUB_INSTALLATIONS: githubBindingsSchema.optional(),
+    GITHUB_FIXTURE_URL: fixtureEndpointSchema
+      .refine((value) => new URL(value).hostname === "127.0.0.1")
+      .optional(),
     INBOX_EMAIL_URL: z.url({ protocol: /^https?$/ }).optional(),
     INBOX_EMAIL_KEY: z.string().min(1).optional(),
     INBOX_EMAIL_FROM: z.string().min(1).optional(),
@@ -133,16 +141,32 @@ const approvals = startApprovals(
   reportRedisError,
 );
 const settings = config.data;
+const fixture =
+  settings.CONNECTOR_TOKEN_KEY && settings.CONNECTOR_FIXTURE_URL
+    ? {
+        key: settings.CONNECTOR_TOKEN_KEY,
+        endpoint: settings.CONNECTOR_FIXTURE_URL,
+      }
+    : undefined;
+const github =
+  settings.GITHUB_APP_ID &&
+  settings.GITHUB_APP_PRIVATE_KEY &&
+  settings.GITHUB_INSTALLATIONS
+    ? {
+        appId: settings.GITHUB_APP_ID,
+        privateKey: settings.GITHUB_APP_PRIVATE_KEY.replaceAll("\\n", "\n"),
+        endpoint:
+          (process.env.NODE_ENV !== "production"
+            ? settings.GITHUB_FIXTURE_URL
+            : undefined) ?? "https://api.github.com/",
+        bindings: settings.GITHUB_INSTALLATIONS,
+      }
+    : undefined;
 const connectors =
-  settings.BRIEF_WORKER_DATABASE_URL &&
-  settings.CONNECTOR_TOKEN_KEY &&
-  settings.CONNECTOR_FIXTURE_URL
+  settings.BRIEF_WORKER_DATABASE_URL && (fixture || github)
     ? startConnectors(
         settings.BRIEF_WORKER_DATABASE_URL,
-        {
-          key: settings.CONNECTOR_TOKEN_KEY,
-          fixtureEndpoint: settings.CONNECTOR_FIXTURE_URL,
-        },
+        { fixture, github },
         producer,
         consumer,
         reportRedisError,

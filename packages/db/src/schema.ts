@@ -1016,6 +1016,7 @@ export const proposals = pgTable(
     workId: uuid("work_id"),
     briefId: uuid("brief_id"),
     meetingItemId: uuid("meeting_item_id"),
+    githubSourceId: uuid("github_source_id"),
     requesterId: uuid("requester_id").notNull(),
     status: proposalStatus().notNull().default("draft"),
     revision: integer().notNull().default(1),
@@ -1039,11 +1040,21 @@ export const proposals = pgTable(
         meetingItems.id,
       ],
     }),
+    foreignKey({
+      name: "proposals_github_source_fk",
+      columns: [table.workspaceId, table.projectId, table.githubSourceId],
+      foreignColumns: [
+        sourceObjects.workspaceId,
+        sourceObjects.projectId,
+        sourceObjects.id,
+      ],
+    }),
+    index("proposals_github_source_idx").on(table.githubSourceId),
     index("proposals_meeting_item_idx").on(table.meetingItemId),
     unique("proposals_brief_unique").on(table.briefId),
     check(
       "proposals_one_target",
-      sql`num_nonnulls(${table.workId}, ${table.briefId}, ${table.meetingItemId}) = 1`,
+      sql`num_nonnulls(${table.workId}, ${table.briefId}, ${table.meetingItemId}, ${table.githubSourceId}) = 1`,
     ),
     foreignKey({
       name: "proposals_brief_fk",
@@ -1124,7 +1135,7 @@ export const proposalRevisions = pgTable(
     }),
     check(
       "proposal_revisions_command",
-      sql`coalesce(${table.command}->>'kind' IN ('work.edit', 'plan.create', 'meeting.accept'), false)`,
+      sql`coalesce(${table.command}->>'kind' IN ('work.edit', 'plan.create', 'meeting.accept', 'github.comment'), false)`,
     ),
   ],
 );
@@ -1186,6 +1197,11 @@ export const executions = pgTable(
     finishedAt: timestamp("finished_at", { withTimezone: true }),
     issue: text(),
     writeMutationId: uuid("write_mutation_id").notNull().defaultRandom(),
+    githubStartedAt: timestamp("github_started_at", { withTimezone: true }),
+    githubLease: uuid("github_lease"),
+    githubNextAt: timestamp("github_next_at", { withTimezone: true }),
+    githubAttempts: integer("github_attempts").notNull().default(0),
+    githubRemote: jsonb("github_remote"),
     approvalAuditId: uuid("approval_audit_id")
       .notNull()
       .references(() => auditEvents.id),
@@ -1421,6 +1437,7 @@ export const connectorInstallations = pgTable(
     ownerId: uuid("owner_id").notNull(),
     label: text().notNull(),
     provider: text().notNull(),
+    githubInstallation: text("github_installation"),
     credential: text(),
     state: text().notNull().default("enabled"),
     version: integer().notNull().default(1),
@@ -1434,6 +1451,16 @@ export const connectorInstallations = pgTable(
       columns: [table.workspaceId, table.ownerId],
       foreignColumns: [memberships.workspaceId, memberships.userId],
     }),
+    check(
+      "connector_installations_provider",
+      sql`(${table.provider} = 'fixture' AND ${table.githubInstallation} IS NULL)
+        OR (${table.provider} = 'github' AND ${table.githubInstallation} ~ '^[1-9][0-9]{0,15}$' AND ${table.githubInstallation} IS NOT NULL)`,
+    ),
+    uniqueIndex("connector_installations_active_github")
+      .on(table.workspaceId, table.githubInstallation)
+      .where(
+        sql`${table.state} <> 'disconnected' AND ${table.githubInstallation} IS NOT NULL`,
+      ),
     check(
       "connector_installations_state",
       sql`${table.state} IN ('enabled','paused','disconnected')`,
@@ -1450,6 +1477,7 @@ export const connectorMappings = pgTable(
     projectId: uuid("project_id").notNull(),
     audience: text().notNull(),
     providerAudience: text("provider_audience"),
+    githubRepository: text("github_repository"),
     verifiedUntil: timestamp("verified_until", { withTimezone: true }),
     checkpoint: text(),
     lastSuccess: timestamp("last_success", { withTimezone: true }),
@@ -1590,6 +1618,7 @@ export const sourceRevisions = pgTable(
     sourceId: uuid("source_id").notNull(),
     revision: integer().notNull(),
     revisionKey: text("revision_key").notNull(),
+    github: jsonb(),
     observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
     title: text(),
     body: text(),
@@ -1658,6 +1687,42 @@ export const connectorShares = pgTable(
       table.workspaceId,
       table.projectId,
       table.id,
+    ),
+  ],
+);
+
+export const githubWorkLinks = pgTable(
+  "github_work_links",
+  {
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    sourceId: uuid("source_id").notNull(),
+    workId: uuid("work_id").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.workspaceId, t.projectId, t.sourceId, t.workId] }),
+    foreignKey({
+      name: "github_work_links_source_fk",
+      columns: [t.workspaceId, t.projectId, t.sourceId],
+      foreignColumns: [
+        sourceObjects.workspaceId,
+        sourceObjects.projectId,
+        sourceObjects.id,
+      ],
+    }),
+    foreignKey({
+      name: "github_work_links_work_fk",
+      columns: [t.workspaceId, t.projectId, t.workId],
+      foreignColumns: [
+        workItems.workspaceId,
+        workItems.projectId,
+        workItems.id,
+      ],
+    }),
+    index("github_work_links_work_idx").on(
+      t.workspaceId,
+      t.projectId,
+      t.workId,
     ),
   ],
 );

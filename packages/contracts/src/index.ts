@@ -57,3 +57,5 @@ export * from "./risks.js";
 export * from "./meetings.js";
 export * from "./inbox.js";
 export * from "./connectors.js";
+
+export * from "./github.js";

@@ -1,6 +1,8 @@
 import type {
   AuditFilter,
   createProposalSchema,
+  githubCommentDraftSchema,
+  githubCommentRevisionSchema,
   reviseProposalSchema,
   reviewReasonSchema,
   reviewVersionSchema,
@@ -15,12 +17,18 @@ import { databaseScope } from "./identity.js";
 type ReviewAction =
   | {
       action: "create";
-      input: z.infer<typeof createProposalSchema | typeof saveBriefPlanSchema>;
+      input: z.infer<
+        | typeof createProposalSchema
+        | typeof saveBriefPlanSchema
+        | typeof githubCommentDraftSchema
+      >;
     }
   | {
       action: "revise";
       input: z.infer<
-        typeof reviseProposalSchema | typeof reviseBriefPlanSchema
+        | typeof reviseProposalSchema
+        | typeof reviseBriefPlanSchema
+        | typeof githubCommentRevisionSchema
       >;
     }
   | { action: "submit" | "approve"; input: z.infer<typeof reviewVersionSchema> }

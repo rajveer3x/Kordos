@@ -1,5 +1,7 @@
 import {
   connectorClaimSchema,
+  githubExecutionSchema,
+  type GitHubRemoteReceipt,
   type ConnectorChange,
   type ConnectorQueueJob,
   type connectorDeliverySchema,
@@ -49,6 +51,53 @@ export function connectorStore(client: Sql) {
       >`SELECT kordos_connectors.receive(
         ${id}, ${delivery}, ${hash}, ${JSON.stringify(payload)}::text::jsonb) AS value`;
       return row?.value;
+    },
+    async githubReceive(
+      workspace: string,
+      installation: string,
+      delivery: string,
+      hash: string,
+      scope: string,
+      event: object,
+    ) {
+      const [row] = await client<
+        { value: CommandResult | null }[]
+      >`SELECT kordos_github.receive(
+        ${workspace}, ${installation}, ${delivery}, ${hash}, ${scope}, ${JSON.stringify(event)}::text::jsonb) AS value`;
+      return row?.value;
+    },
+    async githubInvalidate(
+      workspace: string,
+      installation: string,
+      scopes: string[] | null,
+    ) {
+      await client`SELECT kordos_github.invalidate(${workspace}, ${installation}, ${scopes ? JSON.stringify(scopes) : null}::text::jsonb)`;
+    },
+    githubActivity(
+      [actor, workspace]: Scope,
+      project: string,
+      work: string | null,
+      cursor: string | null,
+    ) {
+      return scoped(actor, workspace, async (sql) => {
+        const [row] =
+          await sql`SELECT kordos_github.activity(${project}, ${work}, ${cursor}) AS value`;
+        return row?.value;
+      });
+    },
+    githubLink(
+      [actor, workspace]: Scope,
+      project: string,
+      source: string,
+      input: { workId: string; mutationId: string; linked: boolean },
+    ) {
+      return scoped(actor, workspace, async (sql) => {
+        const [row] = await sql<
+          { value: CommandResult | null }[]
+        >`SELECT kordos_github.link_work(
+          ${project}, ${source}, ${input.workId}, ${input.mutationId}, ${input.linked}) AS value`;
+        return row?.value;
+      });
     },
     sources([actor, workspace]: Scope, project: string, cursor: string | null) {
       return scoped(actor, workspace, async (sql) => {
@@ -105,6 +154,7 @@ export type ConnectorBatch = {
   audience: "project" | "private";
   checkpoint: string | null;
   rebuild: boolean;
+  repositoryId?: string;
 };
 
 export function connectConnectorWorker(url: string) {
@@ -128,6 +178,23 @@ export function connectConnectorWorker(url: string) {
       issue: Issue | null,
     ) {
       await client`SELECT kordos_connectors.finish(${id}, ${lease}, ${batch ? JSON.stringify(batch) : null}::text::jsonb, ${issue})`;
+    },
+    githubPending: () =>
+      client<{ id: string }[]>`SELECT id FROM kordos_github.pending()`,
+    async githubClaim(id: string) {
+      const [row] =
+        await client`SELECT kordos_github.execute(${id}, 'claim', NULL, NULL) AS value`;
+      return row?.value ? githubExecutionSchema.parse(row.value) : null;
+    },
+    async githubExecute(
+      id: string,
+      step: "start" | "complete" | "retry" | "refuse",
+      lease: string,
+      value?: GitHubRemoteReceipt | { audience: "project" | "private" },
+    ) {
+      const [row] =
+        await client`SELECT kordos_github.execute(${id}, ${step}, ${lease}, ${value ? JSON.stringify(value) : null}::text::jsonb) AS value`;
+      return row?.value === true;
     },
     close: () => client.end({ timeout: 3 }),
   };

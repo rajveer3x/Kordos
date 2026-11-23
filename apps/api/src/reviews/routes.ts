@@ -3,6 +3,8 @@ import {
   auditPageSchema,
   createProposalSchema,
   idSchema,
+  githubCommentDraftSchema,
+  githubCommentRevisionSchema,
   proposalDetailSchema,
   proposalPageSchema,
   reviseProposalSchema,
@@ -24,6 +26,7 @@ const proposal = proposals + "/:id";
 const workspaceParams = z.object({ workspaceId: idSchema });
 const projectParams = workspaceParams.extend({ projectId: idSchema });
 const proposalPatchSchema = z.union([
+  githubCommentRevisionSchema,
   reviseBriefPlanSchema,
   reviseProposalSchema,
 ]);
@@ -189,6 +192,21 @@ export function registerReviews(
     },
   );
 
+  api.post(
+    workspace + "/projects/:projectId/github-comment-proposals",
+    async (request, reply) => {
+      const actor = await requireActor(request);
+      const { workspaceId, projectId } = parse(projectParams, request.params);
+      const input = parse(githubCommentDraftSchema, request.body);
+      const result = await db.mutate(
+        [actor, workspaceId],
+        { projectId },
+        { action: "create", input },
+      );
+      return reply.code(201).send(saved(result));
+    },
+  );
+
   api.patch(proposal, async (request) => {
     const actor = await requireActor(request);
     const { workspaceId, id } = parse(proposalParams, request.params);
@@ -209,6 +227,7 @@ export function registerReviews(
         data &&
         data.kind !== "plan" &&
         data.kind !== "meeting" &&
+        data.kind !== "github" &&
         workItemSchema.safeParse(
           await planning.work(scope, data.projectId, data.workId),
         ).data;

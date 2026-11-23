@@ -40,7 +40,13 @@ type Command<T = ConnectorCommand> = T extends ConnectorCommand
   ? Omit<T, "expectedVersion" | "mutationId">
   : never;
 
-function MappingFields({ destinations }: { destinations: Destination[] }) {
+function MappingFields({
+  destinations,
+  github = false,
+}: {
+  destinations: Destination[];
+  github?: boolean;
+}) {
   return (
     <div className="planning-form-grid">
       <label>
@@ -57,7 +63,7 @@ function MappingFields({ destinations }: { destinations: Destination[] }) {
         </select>
       </label>
       <label>
-        Provider scope
+        {github ? "Repository" : "Provider scope"}
         <input
           name="scope"
           required
@@ -118,11 +124,20 @@ function useConnectorMutation(id?: string) {
   });
 }
 
-function NewConnection({ destinations }: { destinations: Destination[] }) {
+function NewConnection({
+  destinations,
+  installations,
+}: {
+  destinations: Destination[];
+  installations?: string[];
+}) {
+  const github = !!installations;
   const save = useConnectorMutation();
   return (
     <details>
-      <summary>Connect a fixture source</summary>
+      <summary>
+        {github ? "Connect GitHub repository" : "Connect a fixture source"}
+      </summary>
       <form
         className="planning-form"
         onSubmit={(event) => {
@@ -131,9 +146,13 @@ function NewConnection({ destinations }: { destinations: Destination[] }) {
           const values = new FormData(form);
           save.mutate(
             {
-              provider: "fixture",
+              ...(github
+                ? {
+                    provider: "github",
+                    installationId: String(values.get("installation")),
+                  }
+                : { provider: "fixture", token: String(values.get("token")) }),
               label: String(values.get("label")),
-              token: String(values.get("token")),
               ...mappingFields(values),
             },
             { onSuccess: () => form.reset() },
@@ -145,18 +164,40 @@ function NewConnection({ destinations }: { destinations: Destination[] }) {
             Connection name
             <input name="label" required maxLength={120} />
           </label>
-          <label>
-            Access token
-            <input
-              name="token"
-              type="password"
-              autoComplete="off"
-              required
-              maxLength={8192}
-            />
-          </label>
+          {installations ? (
+            <label>
+              GitHub App installation
+              <select
+                name="installation"
+                required
+                defaultValue={
+                  installations.length === 1 ? installations[0] : ""
+                }
+              >
+                <option value="" disabled>
+                  Choose an installation
+                </option>
+                {installations.map((id) => (
+                  <option key={id} value={id}>
+                    {id}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <label>
+              Access token
+              <input
+                name="token"
+                type="password"
+                autoComplete="off"
+                required
+                maxLength={8192}
+              />
+            </label>
+          )}
         </div>
-        <MappingFields destinations={destinations} />
+        <MappingFields destinations={destinations} github={github} />
         <div className="planning-actions">
           <Button type="submit" disabled={save.isPending}>
             {save.isPending ? "Connecting…" : "Connect source"}
@@ -181,6 +222,7 @@ function Connection({
   const { workspace } = usePlanning();
   const save = useConnectorMutation(item.id);
   const [confirmation, setConfirmation] = useState<"disconnect" | string>();
+  const github = item.provider === "github";
   const disconnected = item.status === "disconnected";
   const revoked =
     item.status === "paused" && item.issue === "credential_revoked";
@@ -206,7 +248,7 @@ function Connection({
         </StatusLabel>
       </div>
       <p className="planning-help">
-        Fixture provider ·{" "}
+        {github ? "GitHub App" : "Fixture provider"} ·{" "}
         {item.lastSuccess ? (
           <>
             Last success{" "}
@@ -218,7 +260,13 @@ function Connection({
           "Awaiting first successful sync"
         )}
       </p>
-      {item.issue && <p>{issues[item.issue]}</p>}
+      {item.issue && (
+        <p>
+          {item.issue === "credential_revoked" && github
+            ? "GitHub rejected the installation. Restore access in GitHub, then recheck the installation."
+            : issues[item.issue]}
+        </p>
+      )}
       {item.retryAt && (
         <p className="planning-help">
           Next retry{" "}
@@ -359,37 +407,49 @@ function Connection({
           )}
           {enabled && item.canConfigure && (
             <>
-              <details open={revoked || undefined}>
-                <summary>Replace access token</summary>
-                <form
-                  className="planning-form"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    const form = event.currentTarget;
-                    submit(
-                      {
-                        action: "reconnect",
-                        token: String(new FormData(form).get("token")),
-                      },
-                      () => form.reset(),
-                    );
-                  }}
-                >
-                  <label>
-                    New access token
-                    <input
-                      name="token"
-                      type="password"
-                      autoComplete="off"
-                      required
-                      maxLength={8192}
-                    />
-                  </label>
-                  <Button type="submit" disabled={save.isPending}>
-                    Reconnect
+              {github ? (
+                revoked && (
+                  <Button
+                    variant="secondary"
+                    disabled={save.isPending}
+                    onClick={() => submit({ action: "reconnect" })}
+                  >
+                    Recheck installation
                   </Button>
-                </form>
-              </details>
+                )
+              ) : (
+                <details open={revoked || undefined}>
+                  <summary>Replace access token</summary>
+                  <form
+                    className="planning-form"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      const form = event.currentTarget;
+                      submit(
+                        {
+                          action: "reconnect",
+                          token: String(new FormData(form).get("token")),
+                        },
+                        () => form.reset(),
+                      );
+                    }}
+                  >
+                    <label>
+                      New access token
+                      <input
+                        name="token"
+                        type="password"
+                        autoComplete="off"
+                        required
+                        maxLength={8192}
+                      />
+                    </label>
+                    <Button type="submit" disabled={save.isPending}>
+                      Reconnect
+                    </Button>
+                  </form>
+                </details>
+              )}
               {destinations.length > 0 && (
                 <details>
                   <summary>Add a scope mapping</summary>
@@ -404,7 +464,10 @@ function Connection({
                       );
                     }}
                   >
-                    <MappingFields destinations={destinations} />
+                    <MappingFields
+                      destinations={destinations}
+                      github={github}
+                    />
                     <Button type="submit" disabled={save.isPending}>
                       Add mapping
                     </Button>
@@ -457,7 +520,17 @@ export function ConnectorSettings() {
               connection.
             </p>
           ) : query.data.destinations.length ? (
-            <NewConnection destinations={query.data.destinations} />
+            <>
+              {query.data.githubInstallations.length > 0 && (
+                <NewConnection
+                  destinations={query.data.destinations}
+                  installations={query.data.githubInstallations}
+                />
+              )}
+              {query.data.fixtureEnabled && (
+                <NewConnection destinations={query.data.destinations} />
+              )}
+            </>
           ) : (
             <p className="planning-help">
               A project lead can connect a source to an active project.

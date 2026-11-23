@@ -7,6 +7,7 @@ import {
 import { connectDatabase } from "@kordos/db";
 import Fastify from "fastify";
 import { Redis } from "ioredis";
+import { registerGitHubIngress } from "./connectors/github-ingress.js";
 import { registerConnectorIngress } from "./connectors/ingress.js";
 import { loadConfig } from "./config.js";
 import { registerIdentity } from "./identity/routes.js";
@@ -115,6 +116,15 @@ if (
     app,
     db.connectors,
     config.CONNECTOR_FIXTURE_WEBHOOK_SECRET,
+  );
+}
+
+if (config.GITHUB_WEBHOOK_SECRET && config.GITHUB_INSTALLATIONS) {
+  registerGitHubIngress(
+    app,
+    db.connectors,
+    config.GITHUB_WEBHOOK_SECRET,
+    config.GITHUB_INSTALLATIONS,
   );
 }
 

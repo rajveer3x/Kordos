@@ -9,6 +9,8 @@ import {
   connectorSourceSchema,
   createConnectorSchema,
   idSchema,
+  githubActivitySchema,
+  githubLinkSchema,
   revokeConnectorShareSchema,
 } from "@kordos/contracts";
 import { sealConnectorCredential, type connectDatabase } from "@kordos/db";
@@ -84,8 +86,9 @@ export function registerConnectors(
   api: FastifyInstance,
   db: ConnectorStore,
   requireActor: (request: FastifyRequest) => Promise<string>,
-  key?: string,
+  options: { key?: string; fixture: boolean; github: Record<string, string> },
 ) {
+  const { key, fixture, github } = options;
   function credentials(
     workspaceId: string,
     id: string,
@@ -113,14 +116,32 @@ export function registerConnectors(
     const { workspaceId } = parse(workspaceParams, request.params);
     const value = await db.list([actor, workspaceId]);
     if (!value) throw unavailable();
-    return connectorDirectorySchema.parse({ ...value, enabled: !!key });
+    const fixtureEnabled = fixture && !!key;
+    const githubInstallations = Object.keys(github).filter(
+      (id) => github[id] === workspaceId,
+    );
+    return connectorDirectorySchema.parse({
+      ...value,
+      enabled: fixtureEnabled || githubInstallations.length > 0,
+      fixtureEnabled,
+      githubInstallations,
+    });
   });
 
   api.post(connectors, async (request, reply) => {
     const actor = await requireActor(request);
     const { workspaceId } = parse(workspaceParams, request.params);
     const input = parse(createConnectorSchema, request.body);
-    const { token, ...settings } = input;
+    const { token, ...settings } = {
+      token: undefined as string | undefined,
+      ...input,
+    };
+    if (
+      input.provider === "github"
+        ? github[input.installationId] !== workspaceId
+        : !fixture
+    )
+      throw unavailable();
     const { fingerprint, sealed } = credentials(
       workspaceId,
       input.mutationId,
@@ -152,6 +173,35 @@ export function registerConnectors(
       await db.manage([actor, workspaceId], id, settings, sealed, fingerprint),
     );
     return reply.code(input.action === "sync" ? 202 : 200).send(result);
+  });
+
+  api.get(
+    workspace + "/projects/:projectId/github-activity",
+    async (request) => {
+      const actor = await requireActor(request);
+      const { workspaceId, projectId } = parse(projectParams, request.params);
+      const { workId, cursor } = parse(
+        z.object({ workId: idSchema.optional(), cursor: idSchema.optional() }),
+        request.query,
+      );
+      const page = await db.githubActivity(
+        [actor, workspaceId],
+        projectId,
+        workId ?? null,
+        cursor ?? null,
+      );
+      if (!page) throw unavailable();
+      return githubActivitySchema.parse(page);
+    },
+  );
+
+  api.post(sources + "/:id/work-links", async (request) => {
+    const actor = await requireActor(request);
+    const { workspaceId, projectId, id } = parse(sourceParams, request.params);
+    const input = parse(githubLinkSchema, request.body);
+    return connectorWriteResult(
+      await db.githubLink([actor, workspaceId], projectId, id, input),
+    );
   });
 
   api.get(sources, async (request) => {

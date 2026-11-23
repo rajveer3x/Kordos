@@ -284,7 +284,7 @@ test("reviewed work applies once and audit history preserves the evidence bounda
     ).toBeVisible();
     const pending = await detail(submittedId);
     const redacted = await detail(submittedId, viewerPage);
-    if (redacted.kind === "plan" || redacted.kind === "meeting")
+    if (redacted.kind !== "task" && redacted.kind !== "milestone")
       throw new Error("Expected a work proposal.");
     expect(redacted.before).toBeNull();
     expect(redacted.after).toBeNull();

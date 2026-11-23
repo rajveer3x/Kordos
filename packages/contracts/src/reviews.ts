@@ -1,5 +1,9 @@
 import { z } from "zod";
 import { briefPlanSchema } from "./briefs.js";
+import {
+  githubCommentCommandSchema,
+  githubRemoteReceiptSchema,
+} from "./github.js";
 import { idSchema } from "./identity.js";
 import { citationSchema, resolvedCitationSchema } from "./knowledge.js";
 import { meetingItemValuesSchema } from "./meetings.js";
@@ -58,6 +62,8 @@ export const executionIssueSchema = z.enum([
   "worker_failed",
   "risk_stale",
   "ambiguous_effect",
+  "destination_unavailable",
+  "provider_refused",
 ]);
 export const executionSchema = z.object({
   id: idSchema,
@@ -68,6 +74,7 @@ export const executionSchema = z.object({
   issue: executionIssueSchema.nullable(),
   effectEventId: idSchema.nullable(),
   auditId: idSchema,
+  remote: githubRemoteReceiptSchema.nullable().optional(),
 });
 const summary = z.object({
   id: idSchema,
@@ -86,10 +93,15 @@ const meetingTarget = {
   kind: z.literal("meeting"),
 };
 const planTarget = { briefId: idSchema, kind: z.literal("plan") };
+const githubTarget = {
+  githubSourceId: idSchema.nullable(),
+  kind: z.literal("github"),
+};
 export const proposalSummarySchema = z.discriminatedUnion("kind", [
   summary.extend(workTarget),
   summary.extend(planTarget),
   summary.extend(meetingTarget),
+  summary.extend(githubTarget),
 ]);
 const detail = summary.extend({
   version,
@@ -111,6 +123,10 @@ const detail = summary.extend({
   canReview: z.boolean(),
 });
 export const proposalDetailSchema = z.discriminatedUnion("kind", [
+  detail.extend({
+    ...githubTarget,
+    githubComment: githubCommentCommandSchema.nullable(),
+  }),
   detail.extend({
     ...workTarget,
     before: workFieldsSchema.nullable(),
@@ -153,6 +169,14 @@ export const auditFilterSchema = z
     projectId: idSchema.optional(),
     actorId: idSchema.optional(),
     targetId: idSchema.optional(),
+    githubCommentUrl: githubRemoteReceiptSchema.shape.url
+      .max(310)
+      .refine((url) =>
+        /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/(issues|pull)\/[1-9]\d*#issuecomment-[1-9]\d*$/i.test(
+          url,
+        ),
+      )
+      .optional(),
     from: date.optional(),
     to: date.optional(),
     cursor: idSchema.optional(),

@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { AsyncState, Button, PageHeading } from "../../components/ui";
+import { GitHubActivity } from "../connectors/github-activity";
 import { denied, read } from "../identity/api";
 import {
   planningRefresh,
@@ -18,6 +19,8 @@ import { ReviewDiff } from "./review-diff";
 import "./reviews.css";
 
 const actions: Record<string, string> = {
+  "github.comment_published": "GitHub comment published",
+  "github.work_link_changed": "GitHub work link changed",
   "work.created": "Work item created",
   "work.edited": "Work item edited",
   "work.completed": "Work item completed",
@@ -74,7 +77,12 @@ function title(event: AuditEntry) {
 
 export function ProjectAudit() {
   const { details } = useLiveProject();
-  return <AuditPage projectId={details.id} />;
+  return (
+    <div className="project-activity">
+      <GitHubActivity projectId={details.id} />
+      <AuditPage projectId={details.id} />
+    </div>
+  );
 }
 
 export function AuditPage({ projectId }: { projectId?: string }) {
@@ -190,7 +198,7 @@ function AuditFilters({
         }
         const parsed = auditFilterSchema.safeParse(Object.fromEntries(next));
         if (!parsed.success) {
-          setError("Check the IDs and date range.");
+          setError("Check the IDs, GitHub comment URL and date range.");
           return;
         }
         setError("");
@@ -213,6 +221,14 @@ function AuditFilters({
       <label>
         Target ID
         <input name="targetId" defaultValue={search.get("targetId") ?? ""} />
+      </label>
+      <label>
+        GitHub comment URL
+        <input
+          type="url"
+          name="githubCommentUrl"
+          defaultValue={search.get("githubCommentUrl") ?? ""}
+        />
       </label>
       <label>
         From date (UTC)

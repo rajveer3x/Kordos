@@ -1,8 +1,8 @@
 # Delivery tracker
 
-**Current state** — Features 01 through 13 are verified locally.
+**Current state** — Features 01 through 14 are verified locally.
 
-**Next ready feature** — [14 · GitHub activity and approved comments](feature-specs/14-github-activity-and-actions.md). [Feature 15](feature-specs/15-calendar-and-gmail.md) also has its prerequisites met. Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
+**Next ready feature** — [15 · Calendar events and shared email](feature-specs/15-calendar-and-gmail.md). Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
 
 | ID | Feature prompt | Depends on | State | Evidence |
 |---|---|---|---|---|
@@ -19,7 +19,7 @@
 | 11 | [Meetings and accountable follow-up](feature-specs/11-meetings-and-actions.md) | 06, 07, 08, 09 | Done | Exact segment playback, reviewed follow-up, reprocessing and media retention passed. See [Feature 11 evidence](#feature-11-evidence). |
 | 12 | [Inbox and deadline delivery](feature-specs/12-inbox-and-deadlines.md) | 06, 08, 10 | Done | Quiet-hour rescheduling, read state sync, local email delivery and revocation checks passed. See [Feature 12 evidence](#feature-12-evidence). |
 | 13 | [Connector management and ingestion](feature-specs/13-connector-runtime.md) | 03, 04, 07 | Done | Delivery deduplication, checkpoint recovery, private-source isolation and disconnect passed. See [Feature 13 evidence](#feature-13-evidence). |
-| 14 | [GitHub activity and approved comments](feature-specs/14-github-activity-and-actions.md) | 08, 13 | Pending | — |
+| 14 | [GitHub activity and approved comments](feature-specs/14-github-activity-and-actions.md) | 08, 13 | Done | Webhook convergence, destination revocation and one reconciled publication passed. See [Feature 14 evidence](#feature-14-evidence). |
 | 15 | [Calendar events and shared email](feature-specs/15-calendar-and-gmail.md) | 11, 13 | Pending | — |
 | 16 | [Permission-aware hybrid search](feature-specs/16-hybrid-search.md) | 07, 11, 14, 15 | Pending | — |
 | 17 | [Weekly health and duplicate review](feature-specs/17-health-and-duplicates.md) | 08, 10, 12, 16 | Pending | — |
@@ -279,3 +279,21 @@ Verified on 2026-11-23 with Node 26.5.0, pnpm 10.34.9, Chromium, a loopback OIDC
 Connection owners can map scopes to projects where they are leads. Admins can see and manage connection health across the workspace. A private provider grant restricts a mirror to the owner with project access. The worker reconciles active scopes every five minutes and mirror verification expires after ten minutes. Disconnect queues cleanup for five minutes later. The [connector setup](../README.md#connector-runtime) documents the fixture protocol. Live GitHub and Google adapters are covered by Features 14 and 15.
 
 All local Feature 13 acceptance checks passed. Feature 14 is ready.
+
+
+## Feature 14 evidence
+
+Verified on 2026-11-23 with Node 26.5.0, pnpm 10.34.9, Chromium, a loopback OIDC issuer and GitHub API fixture, and isolated PostgreSQL, Redis and S3-compatible storage.
+
+| Check | Result |
+|---|---|
+| `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm build`, `git diff --check` | Passed. All 17 Vitest tests passed. The build reported the existing Zod annotation and Vite entry-chunk size warnings. |
+| `pnpm db:migrate` twice and `pnpm db:generate` | Fresh and repeat migrations passed. Drizzle found no schema changes. An isolated Feature 13 upgrade preserved a private project, fixture installation and mirror revision under the runtime role. The additive migration was also applied to the local Compose database. |
+| `pnpm test:e2e --workers=3 --trace=on --output=test-results/feature-14-full` | All 21 tests passed, including Redis recovery and Features 02–13. The [GitHub journey](../tests/e2e/github-activity-and-actions.spec.ts) checked activity reflow at 1440, 1024, 390 and 320 CSS px. Desktop and mobile trace frames showed the activity rows and exact comment review. |
+| `pnpm test:e2e --project=github --project=reviews --no-deps --workers=1 --trace=on --output=test-results/feature-14-final` | Both tests passed after adding the active work-link requirement and GitHub comment URL lookup. The browser opened the approved revision from the remote URL, and the ordinary work-item approval still passed. |
+| Webhooks, repair and links | A signed replay reused its receipt. An invalid signature received 401 and conflicting reuse received 409. An open event delivered after a close left the canonical PR merged, with one added revision at the same provider timestamp. Sync repaired a missed title and head commit update. Explicit IDs and confirmed matches linked work in the mapped project. A neighboring tenant could not claim the installation, and a project viewer could not read the private repository mirror. |
+| Approval and remote receipt | Concurrent approvals shared one execution. Adding repository B to the approval request still published only to A. Removing B's GitHub grant before publication recorded a refusal. Restoring access and approving a new revision published one issue comment to B. A timeout after GitHub accepted A's comment produced one provider comment and one receipt linked to its exact reviewed Markdown, approver and audit event. |
+
+GitHub installations are bound to a workspace in server configuration. Comments require an issue or pull request linked to active work in its mapped project. The exact reviewed Markdown includes a delivery reference that lets the worker reconcile without issuing another POST. The [GitHub App setup](../README.md#github-app) documents configuration and scan limits.
+
+All local Feature 14 acceptance checks passed. Live GitHub App verification remains a staging check using a designated installation. Feature 15 is ready.
