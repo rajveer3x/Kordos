@@ -43,6 +43,13 @@
       "when": 1795426257714,
       "tag": "0005_documents_and_decisions",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795427564545,
+      "tag": "0006_approvals_and_audit",
+      "breakpoints": true
     }
   ]
 }

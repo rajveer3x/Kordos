@@ -15,6 +15,7 @@ import {
 } from "react-router";
 import { Sheet } from "../../components/sheet";
 import { AsyncState, Button, StatusLabel } from "../../components/ui";
+import { workspacePath } from "../workspace/workspace-model";
 import { DiscussionPanel } from "../collaboration/discussion-panel";
 import { denied, read } from "../identity/api";
 import {
@@ -128,6 +129,9 @@ function WorkDetails({
   owners: ProjectPeople["owners"];
 }) {
   const [editing, setEditing] = useState<WorkItem>();
+  const [proposing, setProposing] = useState<WorkItem>();
+  const { api, workspace } = usePlanning();
+  const navigate = useNavigate();
   const [notice, setNotice] = useState("");
   const command = usePlanningCommand();
 
@@ -165,7 +169,20 @@ function WorkDetails({
           )}
         </div>
       </header>
-      {editing && canEdit ? (
+      {proposing && canEdit ? (
+        <WorkEditor
+          path={`${api}/projects/${item.projectId}/proposals`}
+          item={proposing}
+          owners={owners}
+          lead
+          canSave={!item.archived}
+          proposal={{}}
+          onSaved={(id) =>
+            navigate(workspacePath(`/reviews/${id}`, workspace.id))
+          }
+          onCancel={() => setProposing(undefined)}
+        />
+      ) : editing && canEdit ? (
         <WorkEditor
           path={path}
           item={editing}
@@ -244,6 +261,12 @@ function WorkDetails({
                     }}
                   >
                     Edit {item.kind}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => setProposing(item)}
+                  >
+                    Propose change
                   </Button>
                   {item.status === "done" && (
                     <Button

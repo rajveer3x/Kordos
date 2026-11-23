@@ -32,6 +32,12 @@ export const workspaceDestinations = [
     empty: "There are no reviews to resolve.",
   },
   {
+    id: "audit",
+    label: "Audit",
+    path: "/audit",
+    empty: "There is no audit history yet.",
+  },
+  {
     id: "settings",
     label: "Settings",
     path: "/settings",

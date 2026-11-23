@@ -4,11 +4,17 @@ import {
   workKindSchema,
   workStatusSchema,
   type ProjectPeople,
+  type WorkFields,
   type WorkItem,
 } from "@kordos/contracts";
 import { useState } from "react";
 import { Button } from "../../components/ui";
-import { retainEdits, usePlanningCommand } from "./planning-client";
+import { citationFromLink } from "../knowledge/knowledge-client";
+import {
+  retainEdits,
+  usePlanning,
+  usePlanningCommand,
+} from "./planning-client";
 
 export const workLabels = {
   backlog: "Backlog",
@@ -129,6 +135,7 @@ export function WorkEditor({
   onSaved,
   onCancel,
   canSave,
+  proposal,
 }: {
   path: string;
   item?: WorkItem;
@@ -137,11 +144,24 @@ export function WorkEditor({
   onSaved: (id: string) => void;
   onCancel: () => void;
   canSave: boolean;
+  proposal?: {
+    initial?: WorkFields;
+    evidenceLinks?: string[];
+    revision?: { revision: number; expectedVersion: number };
+  };
 }) {
   const command = usePlanningCommand();
+  const { workspace } = usePlanning();
   const [base, setBase] = useState(item);
-  const [draft, setDraft] = useState(() => toDraft(item));
-  const [showBlocker, setShowBlocker] = useState(!!item?.blockerReason);
+  const [draft, setDraft] = useState(() =>
+    toDraft(
+      item && proposal?.initial ? { ...item, ...proposal.initial } : item,
+    ),
+  );
+  const [showBlocker, setShowBlocker] = useState(!!draft.blockerReason);
+  const [evidenceLinks, setEvidenceLinks] = useState(
+    () => proposal?.evidenceLinks?.join("\n") ?? "",
+  );
   const current = workItemSchema.safeParse(command.error?.current).data;
 
   function change<K extends keyof typeof draft>(
@@ -179,6 +199,33 @@ export function WorkEditor({
           return;
         }
         const fields = parsed.data;
+        if (proposal && base) {
+          const evidence = evidenceLinks
+            .split("\n")
+            .map((link) => link.trim())
+            .filter(Boolean)
+            .map((link) => citationFromLink(link, workspace.id));
+          if (evidence.length > 12 || evidence.some((source) => !source)) {
+            command.invalid(
+              "Use up to 12 evidence links from this workspace, one per line.",
+            );
+            return;
+          }
+          const payload = {
+            targetVersion: base.version,
+            command: { kind: "work.edit", values: fields },
+            evidence,
+          };
+          void command.save(
+            path,
+            proposal.revision ? "PATCH" : "POST",
+            proposal.revision
+              ? { ...payload, ...proposal.revision }
+              : { ...payload, workId: base.id },
+            onSaved,
+          );
+          return;
+        }
         void command.save(
           path,
           base ? "PATCH" : "POST",
@@ -320,6 +367,20 @@ export function WorkEditor({
           </>
         )}
       </fieldset>
+      {proposal && (
+        <label>
+          Evidence links (optional)
+          <textarea
+            rows={3}
+            aria-describedby="proposal-evidence-help"
+            value={evidenceLinks}
+            onChange={(event) => setEvidenceLinks(event.target.value)}
+          />
+          <span id="proposal-evidence-help" className="planning-help">
+            Paste a link to a document passage or comment, one per line.
+          </span>
+        </label>
+      )}
       {!canSave && (
         <p className="planning-help">
           The item is archived. Your draft is still available to copy.
@@ -353,11 +414,13 @@ export function WorkEditor({
       )}
       <div className="planning-actions">
         <Button type="submit" disabled={!canSave || command.busy || !!current}>
-          {item
-            ? "Save changes"
-            : draft.kind === "milestone"
-              ? "Create milestone"
-              : "Create task"}
+          {proposal
+            ? "Save proposal draft"
+            : item
+              ? "Save changes"
+              : draft.kind === "milestone"
+                ? "Create milestone"
+                : "Create task"}
         </Button>
         <Button variant="quiet" onClick={onCancel}>
           Cancel

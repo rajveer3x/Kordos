@@ -32,6 +32,34 @@ import "./features/workspace/workspace.css";
 
 const ProjectGraph = lazy(() => import("./features/planning/project-graph"));
 const ProjectKnowledge = lazy(() => import("./features/knowledge/routes"));
+const ReviewsPage = lazy(() =>
+  import("./features/reviews/reviews").then(({ ReviewsPage }) => ({
+    default: ReviewsPage,
+  })),
+);
+const ReviewPage = lazy(() =>
+  import("./features/reviews/reviews").then(({ ReviewPage }) => ({
+    default: ReviewPage,
+  })),
+);
+const AuditPage = lazy(() =>
+  import("./features/reviews/audit").then(({ AuditPage }) => ({
+    default: AuditPage,
+  })),
+);
+const ProjectAudit = lazy(() =>
+  import("./features/reviews/audit").then(({ ProjectAudit }) => ({
+    default: ProjectAudit,
+  })),
+);
+
+function ReviewSurface({ children }: { children: ReactNode }) {
+  return (
+    <Suspense fallback={<AsyncState kind="loading" message="Loading page…" />}>
+      {children}
+    </Suspense>
+  );
+}
 
 function WorkspacePage({
   destination,
@@ -93,6 +121,14 @@ export function WorkspaceRoutes({
                 <AssignedWork />
               ) : live && destination.id === "projects" ? (
                 <ProjectDirectory projects={workspace.projects} />
+              ) : live && destination.id === "reviews" ? (
+                <ReviewSurface>
+                  <ReviewsPage />
+                </ReviewSurface>
+              ) : live && destination.id === "audit" ? (
+                <ReviewSurface>
+                  <AuditPage />
+                </ReviewSurface>
               ) : (
                 <WorkspacePage
                   destination={destination}
@@ -102,6 +138,16 @@ export function WorkspaceRoutes({
             }
           />
         ))}
+        {live && (
+          <Route
+            path="reviews/:proposalId"
+            element={
+              <ReviewSurface>
+                <ReviewPage />
+              </ReviewSurface>
+            }
+          />
+        )}
         <Route
           path="projects/:projectId"
           element={
@@ -135,6 +181,14 @@ export function WorkspaceRoutes({
               />
               <Route path="settings" element={<ProjectSettings />} />
               <Route
+                path="activity"
+                element={
+                  <ReviewSurface>
+                    <ProjectAudit />
+                  </ReviewSurface>
+                }
+              />
+              <Route
                 path="documents/*"
                 element={
                   <Suspense
@@ -160,7 +214,10 @@ export function WorkspaceRoutes({
               ({ id }) =>
                 id !== "overview" &&
                 (!live ||
-                  (id !== "work" && id !== "graph" && id !== "documents")),
+                  (id !== "work" &&
+                    id !== "graph" &&
+                    id !== "documents" &&
+                    id !== "activity")),
             )
             .map((destination) => (
               <Route key={destination.id} path={destination.id}>

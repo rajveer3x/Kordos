@@ -1,8 +1,8 @@
 # Delivery tracker
 
-**Current state** — Features 01 through 07 are verified locally.
+**Current state** — Features 01 through 08 are verified locally.
 
-**Next ready feature** — [08 · Approval engine and audit history](feature-specs/08-approvals-and-audit.md). Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
+**Next ready feature** — [09 · Brief to approved project plan](feature-specs/09-brief-to-plan.md). [Feature 13](feature-specs/13-connector-runtime.md) also has its prerequisites met. Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
 
 | ID | Feature prompt | Depends on | State | Evidence |
 |---|---|---|---|---|
@@ -13,7 +13,7 @@
 | 05 | [Dependencies and forecasts](feature-specs/05-graph-and-forecasts.md) | 04 | Done | Forecast dates, slack, concurrent cycle rejection and private previews passed. See [Feature 05 evidence](#feature-05-evidence). |
 | 06 | [Comments and presence](feature-specs/06-realtime-collaboration.md) | 04 | Done | Reconnect deduplication, private room revocation and presence expiry passed. See [Feature 06 evidence](#feature-06-evidence). |
 | 07 | [Documents and decision register](feature-specs/07-documents-and-decisions.md) | 04, 06 | Done | Historical citations, draft recovery, supersession and attachment authorization passed. See [Feature 07 evidence](#feature-07-evidence). |
-| 08 | [Approval engine and audit history](feature-specs/08-approvals-and-audit.md) | 04, 07 | Pending | — |
+| 08 | [Approval engine and audit history](feature-specs/08-approvals-and-audit.md) | 04, 07 | Done | Concurrent approval, execution checks and audit tracing passed. See [Feature 08 evidence](#feature-08-evidence). |
 | 09 | [Brief to approved project plan](feature-specs/09-brief-to-plan.md) | 05, 07, 08 | Pending | — |
 | 10 | [Risks from project activity](feature-specs/10-risk-from-activity.md) | 05, 06, 08, 09 | Pending | — |
 | 11 | [Meetings and accountable follow-up](feature-specs/11-meetings-and-actions.md) | 06, 07, 08, 09 | Pending | — |
@@ -177,3 +177,20 @@ Verified on 2026-11-23 with Node 26.5.0, pnpm 10.34.9, Chromium, a local OIDC is
 Document formatting supports headings, lists, emphasis, inline code and task links. Archived documents are read-only. Attachments are limited to 10 MB. The shared citation resolver supports document spans and comment IDs, and it checks each source project's current access before including it in a decision.
 
 All local Feature 07 acceptance checks passed. Feature 08 is ready.
+
+## Feature 08 evidence
+
+Verified on 2026-11-23 with Node 26.5.0, pnpm 10.34.9, Chromium, a local OIDC issuer and isolated PostgreSQL, Redis and S3-compatible storage.
+
+| Check | Result |
+|---|---|
+| `pnpm db:migrate` twice and `pnpm db:generate` | Fresh and repeated migrations passed. An upgrade from Feature 07 preserved a restricted project, its work item and the original audit attribution under the runtime role. Drizzle found no schema changes. |
+| `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm build`, `git diff --check` | Passed. All eight Vitest tests passed. The build emitted the existing Rollup annotation warnings from Zod. |
+| `pnpm test:e2e --workers=3 --trace=on` | All 15 Chromium tests passed. The [Feature 08 journey](../tests/e2e/approvals-and-audit.spec.ts) covered draft and review, receipts, audit links and reflow at 1440, 1024, 390 and 320 CSS px. Chromium trace frames showed readable pending and stale reviews on mobile and the audit trail on desktop. |
+| Concurrent approvals and retries | Two independent project leads returned the same receipt. Retrying approval and redelivering the queue job left one work edit and one applied effect. Editing an approved revision invalidated its receipt and required the new draft to be submitted and approved. |
+| Changes before execution | The worker recovered a claimed receipt and halted it when the target changed. Loss of source access and removal followed by restoration of the reviewer's project membership each prevented application. The stale review let a lead carry proposed edits onto current work. An expired approval and a newly ineligible owner each produced a terminal receipt without changing the work item. |
+| Audit and reconciliation | Audit history linked a manual edit, a rejection and an applied revision to their actors and effects. The runtime role could neither update audit events and revisions nor read private source history without access. A database fixture with an unexpected prior execution event entered reconciliation and left the work item unchanged. |
+
+Work-item proposals expire after seven days by default. Approval binds the exact revision and current requester and reviewer authority. Reviewers can follow the receipt to the applied work edit, and proposal values and evidence are resolved against the viewer's current access.
+
+All local Feature 08 acceptance checks passed. Feature 09 is ready.

@@ -8,6 +8,7 @@ import { forecastStore } from "./forecast.js";
 import { identityStore } from "./identity.js";
 import { knowledgeStore } from "./knowledge.js";
 import { planningStore } from "./planning.js";
+import { reviewsStore } from "./reviews.js";
 import { foundationJobEffects, foundationJobs } from "./schema.js";
 
 export { setDatabaseScope } from "./identity.js";
@@ -54,6 +55,7 @@ export function connectDatabase(url: string) {
     knowledge: knowledgeStore(client),
     identity: identityStore(client),
     planning: planningStore(client),
+    reviews: reviewsStore(client),
     forecast: forecastStore(client),
     async checkReady() {
       await db.execute(sql`

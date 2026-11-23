@@ -6,7 +6,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams, useSearchParams } from "react-router";
 import { denied, read } from "../identity/api";
-import { planningRefresh } from "../planning/planning-client";
+import { planningRefresh, usePlanning } from "../planning/planning-client";
 import { projectPath, workspacePath } from "../workspace/workspace-model";
 import { KnowledgeHeading, KnowledgeState } from "./documents";
 import {
@@ -76,7 +76,8 @@ export function EvidencePassage({
   entry: ResolvedCitation;
   standalone?: boolean;
 }) {
-  const { workspaceId } = useKnowledge();
+  const { workspace } = usePlanning();
+  const workspaceId = workspace.id;
   const { source, author, capturedAt } = entry;
   const project = workspacePath(projectPath(source.projectId), workspaceId);
   const subject = entry.subject;

@@ -17,6 +17,7 @@ import type { Config } from "../config.js";
 import { registerKnowledge } from "../knowledge/routes.js";
 import { registerForecast } from "../planning/forecast-routes.js";
 import { registerPlanning } from "../planning/routes.js";
+import { registerReviews } from "../reviews/routes.js";
 import { IdentityError, parse, unavailable } from "./http.js";
 import { createSessionService, digest, opaqueToken } from "./session.js";
 
@@ -29,7 +30,12 @@ export function registerIdentity(
   redis: Redis,
   stores: Pick<
     ReturnType<typeof connectDatabase>,
-    "identity" | "planning" | "forecast" | "collaboration" | "knowledge"
+    | "identity"
+    | "planning"
+    | "forecast"
+    | "collaboration"
+    | "knowledge"
+    | "reviews"
   >,
   storage: S3Client,
 ) {
@@ -101,6 +107,7 @@ export function registerIdentity(
       }
 
       registerPlanning(api, stores.planning, requireActor);
+      registerReviews(api, stores, requireActor);
       registerForecast(api, stores.forecast, requireActor);
       registerCollaboration(api, stores.collaboration, requireActor);
       registerKnowledge(

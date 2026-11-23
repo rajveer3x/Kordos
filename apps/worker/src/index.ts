@@ -9,6 +9,7 @@ import { runFoundationJob } from "@kordos/domain";
 import { Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { z } from "zod";
+import { startApprovals } from "./approvals.js";
 
 const config = z
   .object({
@@ -80,6 +81,12 @@ worker.on("failed", (job, error) => {
   );
 });
 
+const approvals = startApprovals(
+  db.reviews,
+  producer,
+  consumer,
+  reportRedisError,
+);
 const shutdown = new AbortController();
 
 async function dispatchPendingJobs(signal: AbortSignal) {
@@ -98,13 +105,14 @@ async function dispatchPendingJobs(signal: AbortSignal) {
             })),
           );
         }
+        await approvals.dispatch(signal);
         dispatchFailed = false;
       }
     } catch (error) {
       if (!dispatchFailed && !signal.aborted) {
         console.error(
           "[worker] Could not dispatch pending jobs. Will retry.",
-          error,
+          error instanceof Error ? error.name : "Unknown error",
         );
       }
       dispatchFailed = true;
@@ -123,7 +131,10 @@ async function stop() {
   shutdown.abort();
   try {
     await dispatcher;
-    await worker.close(consumer.status !== "ready");
+    await Promise.all([
+      worker.close(consumer.status !== "ready"),
+      approvals.close(),
+    ]);
     await queue.close();
     await db.close();
   } catch (error) {

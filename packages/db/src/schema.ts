@@ -697,3 +697,174 @@ export const decisions = pgTable(
     }),
   ],
 );
+
+export const proposalStatus = pgEnum("proposal_status", [
+  "draft",
+  "pending",
+  "approved",
+  "applying",
+  "applied",
+  "stale",
+  "rejected",
+  "expired",
+  "failed",
+  "reconciliation_required",
+]);
+
+export const proposals = pgTable(
+  "proposals",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    workId: uuid("work_id").notNull(),
+    requesterId: uuid("requester_id").notNull(),
+    status: proposalStatus().notNull().default("draft"),
+    revision: integer().notNull().default(1),
+    version: integer().notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    reviewerId: uuid("reviewer_id"),
+    reason: text(),
+  },
+  (table) => [
+    unique().on(table.workspaceId, table.projectId, table.id),
+    foreignKey({
+      name: "proposals_work_fk",
+      columns: [table.workspaceId, table.projectId, table.workId],
+      foreignColumns: [
+        workItems.workspaceId,
+        workItems.projectId,
+        workItems.id,
+      ],
+    }),
+    foreignKey({
+      name: "proposals_requester_fk",
+      columns: [table.workspaceId, table.requesterId],
+      foreignColumns: [memberships.workspaceId, memberships.userId],
+    }),
+    foreignKey({
+      name: "proposals_reviewer_fk",
+      columns: [table.workspaceId, table.reviewerId],
+      foreignColumns: [memberships.workspaceId, memberships.userId],
+    }),
+    index("proposals_workspace_date_idx").on(
+      table.workspaceId,
+      table.createdAt,
+      table.id,
+    ),
+  ],
+);
+
+export const proposalRevisions = pgTable(
+  "proposal_revisions",
+  {
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    proposalId: uuid("proposal_id").notNull(),
+    revision: integer().notNull(),
+    authorId: uuid("author_id").notNull(),
+    targetVersion: integer("target_version").notNull(),
+    command: jsonb().notNull(),
+    before: jsonb().notNull(),
+    evidence: jsonb().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    primaryKey({
+      name: "proposal_revisions_pk",
+      columns: [
+        table.workspaceId,
+        table.projectId,
+        table.proposalId,
+        table.revision,
+      ],
+    }),
+    foreignKey({
+      name: "proposal_revisions_proposal_fk",
+      columns: [table.workspaceId, table.projectId, table.proposalId],
+      foreignColumns: [
+        proposals.workspaceId,
+        proposals.projectId,
+        proposals.id,
+      ],
+    }),
+    foreignKey({
+      name: "proposal_revisions_author_fk",
+      columns: [table.workspaceId, table.authorId],
+      foreignColumns: [memberships.workspaceId, memberships.userId],
+    }),
+    check(
+      "proposal_revisions_command",
+      sql`${table.command}->>'kind' IS NOT DISTINCT FROM 'work.edit'`,
+    ),
+  ],
+);
+
+export const executions = pgTable(
+  "executions",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    proposalId: uuid("proposal_id").notNull(),
+    revision: integer().notNull(),
+    reviewerId: uuid("reviewer_id").notNull(),
+    authority: jsonb().notNull(),
+    status: proposalStatus().notNull().default("approved"),
+    approvedAt: timestamp("approved_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    issue: text(),
+    writeMutationId: uuid("write_mutation_id").notNull().defaultRandom(),
+    approvalAuditId: uuid("approval_audit_id")
+      .notNull()
+      .references(() => auditEvents.id),
+    outcomeAuditId: uuid("outcome_audit_id").references(() => auditEvents.id),
+    effectEventId: uuid("effect_event_id")
+      .unique()
+      .references(() => auditEvents.id),
+  },
+  (table) => [
+    unique().on(
+      table.workspaceId,
+      table.projectId,
+      table.proposalId,
+      table.revision,
+    ),
+    foreignKey({
+      name: "executions_revision_fk",
+      columns: [
+        table.workspaceId,
+        table.projectId,
+        table.proposalId,
+        table.revision,
+      ],
+      foreignColumns: [
+        proposalRevisions.workspaceId,
+        proposalRevisions.projectId,
+        proposalRevisions.proposalId,
+        proposalRevisions.revision,
+      ],
+    }),
+    foreignKey({
+      name: "executions_reviewer_fk",
+      columns: [table.workspaceId, table.reviewerId],
+      foreignColumns: [memberships.workspaceId, memberships.userId],
+    }),
+    check(
+      "executions_status",
+      sql`${table.status} NOT IN ('draft', 'pending', 'rejected')`,
+    ),
+    index("executions_pending_idx")
+      .on(table.approvedAt, table.id)
+      .where(sql`${table.status} IN ('approved', 'applying')`),
+  ],
+);

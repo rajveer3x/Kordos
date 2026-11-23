@@ -2,6 +2,7 @@ import type { WorkspaceSummary } from "@kordos/contracts";
 import {
   ArrowDownUp,
   FolderClosed,
+  History,
   House,
   Inbox,
   ListChecks,
@@ -26,6 +27,7 @@ const destinationIcons = {
   search: Search,
   inbox: Inbox,
   reviews: ListChecks,
+  audit: History,
   settings: Settings,
 };
 
@@ -40,7 +42,7 @@ function WorkspaceNavigation({ onNavigate }: { onNavigate?: () => void }) {
             <li key={id}>
               <NavLink
                 to={workspacePath(path, workspaceId)}
-                end={id !== "projects"}
+                end={id !== "projects" && id !== "reviews"}
                 title={label}
                 onClick={onNavigate}
               >

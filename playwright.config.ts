@@ -22,6 +22,7 @@ export default defineConfig({
         "**/dependencies-and-forecasts.spec.ts",
         "**/realtime-collaboration.spec.ts",
         "**/documents-and-decisions.spec.ts",
+        "**/approvals-and-audit.spec.ts",
       ],
     },
     {
@@ -51,6 +52,12 @@ export default defineConfig({
       name: "knowledge",
       testMatch: "**/documents-and-decisions.spec.ts",
       dependencies: ["collaboration"],
+      use: { actionTimeout: 10_000 },
+    },
+    {
+      name: "reviews",
+      testMatch: "**/approvals-and-audit.spec.ts",
+      dependencies: ["knowledge"],
       use: { actionTimeout: 10_000 },
     },
   ],
