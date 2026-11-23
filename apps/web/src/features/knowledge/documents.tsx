@@ -167,7 +167,7 @@ function DocumentReader({
   documentPath: string;
   historical: boolean;
 }) {
-  const { base, workspaceId, writable, details } = useKnowledge();
+  const { api, base, workspaceId, writable, details } = useKnowledge();
   const navigate = useNavigate();
   const command = usePlanningCommand();
   const [editing, setEditing] = useState(false);
@@ -227,6 +227,27 @@ function DocumentReader({
             {new Date(entry.createdAt).toLocaleString()}
           </time>
         </p>
+        {!editing &&
+          writable &&
+          entry.content.trim() &&
+          entry.content.length <= 16000 && (
+            <div className="planning-actions">
+              <Button
+                variant="secondary"
+                disabled={command.busy}
+                onClick={() => {
+                  void command.save(
+                    api + "/briefs",
+                    "POST",
+                    { documentId: file.id, sourceRevision: entry.revision },
+                    (id) => navigate(projectBase + "/briefs/" + id),
+                  );
+                }}
+              >
+                Plan from this revision
+              </Button>
+            </div>
+          )}
         {editing ? (
           <DocumentEditor file={file} close={() => setEditing(false)} />
         ) : (

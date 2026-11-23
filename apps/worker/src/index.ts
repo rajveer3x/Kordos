@@ -9,11 +9,24 @@ import { runFoundationJob } from "@kordos/domain";
 import { Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { z } from "zod";
+import { startBriefs } from "./briefs.js";
 import { startApprovals } from "./approvals.js";
 
 const config = z
   .object({
     DATABASE_URL: databaseUrlSchema,
+    BRIEF_WORKER_DATABASE_URL: databaseUrlSchema.optional(),
+    OPENAI_API_KEY: z.string().min(1).optional(),
+    OPENAI_BASE_URL: z
+      .url({ protocol: /^https?$/ })
+      .default("https://api.openai.com/v1/"),
+    OPENAI_BRIEF_MODEL: z.string().min(1).optional(),
+    BRIEF_MODEL_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(50)
+      .max(30000)
+      .default(12000),
     REDIS_URL: z.url({ protocol: /^rediss?$/ }),
   })
   .safeParse(process.env);
@@ -87,6 +100,23 @@ const approvals = startApprovals(
   consumer,
   reportRedisError,
 );
+const settings = config.data;
+const briefs = settings.BRIEF_WORKER_DATABASE_URL
+  ? startBriefs(
+      settings.BRIEF_WORKER_DATABASE_URL,
+      settings.OPENAI_API_KEY && settings.OPENAI_BRIEF_MODEL
+        ? {
+            apiKey: settings.OPENAI_API_KEY,
+            baseUrl: settings.OPENAI_BASE_URL,
+            model: settings.OPENAI_BRIEF_MODEL,
+            timeoutMs: settings.BRIEF_MODEL_TIMEOUT_MS,
+          }
+        : undefined,
+      producer,
+      consumer,
+      reportRedisError,
+    )
+  : undefined;
 const shutdown = new AbortController();
 
 async function dispatchPendingJobs(signal: AbortSignal) {
@@ -106,6 +136,7 @@ async function dispatchPendingJobs(signal: AbortSignal) {
           );
         }
         await approvals.dispatch(signal);
+        await briefs?.dispatch(signal);
         dispatchFailed = false;
       }
     } catch (error) {
@@ -134,6 +165,7 @@ async function stop() {
     await Promise.all([
       worker.close(consumer.status !== "ready"),
       approvals.close(),
+      briefs?.close(),
     ]);
     await queue.close();
     await db.close();

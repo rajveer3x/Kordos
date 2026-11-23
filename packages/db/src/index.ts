@@ -3,6 +3,7 @@ import { asc, eq, isNull, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { z } from "zod";
+import { briefsStore } from "./briefs.js";
 import { collaborationStore } from "./collaboration.js";
 import { forecastStore } from "./forecast.js";
 import { identityStore } from "./identity.js";
@@ -11,6 +12,7 @@ import { planningStore } from "./planning.js";
 import { reviewsStore } from "./reviews.js";
 import { foundationJobEffects, foundationJobs } from "./schema.js";
 
+export { connectBriefWorker } from "./briefs.js";
 export { setDatabaseScope } from "./identity.js";
 
 export const databaseUrlSchema = z.url({ protocol: /^(postgres|postgresql)$/ });
@@ -51,6 +53,7 @@ export function connectDatabase(url: string) {
   }
 
   return {
+    briefs: briefsStore(client),
     collaboration: collaborationStore(client),
     knowledge: knowledgeStore(client),
     identity: identityStore(client),

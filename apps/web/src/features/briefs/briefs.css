@@ -1,0 +1,50 @@
+.brief-page,
+.brief-editor,
+.brief-candidate {
+  min-width: 0;
+}
+
+.brief-page,
+.brief-candidate {
+  display: grid;
+  gap: var(--space-3);
+  overflow-wrap: anywhere;
+}
+
+.brief-page > a,
+.brief-page > button,
+.brief-editor > button {
+  justify-self: start;
+}
+
+.brief-source-text {
+  white-space: pre-wrap;
+}
+
+.brief-candidates,
+.brief-edges {
+  display: grid;
+  gap: var(--space-3);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.brief-candidate {
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+}
+
+.brief-candidate small {
+  display: block;
+}
+
+.brief-edges li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-3);
+  overflow-wrap: anywhere;
+}

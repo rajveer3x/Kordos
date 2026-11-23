@@ -1,8 +1,8 @@
 # Delivery tracker
 
-**Current state** — Features 01 through 08 are verified locally.
+**Current state** — Features 01 through 09 are verified locally.
 
-**Next ready feature** — [09 · Brief to approved project plan](feature-specs/09-brief-to-plan.md). [Feature 13](feature-specs/13-connector-runtime.md) also has its prerequisites met. Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
+**Next ready feature** — [10 · Risks from project activity](feature-specs/10-risk-from-activity.md). [Feature 11](feature-specs/11-meetings-and-actions.md) and [Feature 13](feature-specs/13-connector-runtime.md) also have their prerequisites met. Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
 
 | ID | Feature prompt | Depends on | State | Evidence |
 |---|---|---|---|---|
@@ -14,7 +14,7 @@
 | 06 | [Comments and presence](feature-specs/06-realtime-collaboration.md) | 04 | Done | Reconnect deduplication, private room revocation and presence expiry passed. See [Feature 06 evidence](#feature-06-evidence). |
 | 07 | [Documents and decision register](feature-specs/07-documents-and-decisions.md) | 04, 06 | Done | Historical citations, draft recovery, supersession and attachment authorization passed. See [Feature 07 evidence](#feature-07-evidence). |
 | 08 | [Approval engine and audit history](feature-specs/08-approvals-and-audit.md) | 04, 07 | Done | Concurrent approval, execution checks and audit tracing passed. See [Feature 08 evidence](#feature-08-evidence). |
-| 09 | [Brief to approved project plan](feature-specs/09-brief-to-plan.md) | 05, 07, 08 | Pending | — |
+| 09 | [Brief to approved project plan](feature-specs/09-brief-to-plan.md) | 05, 07, 08 | Done | Sourced candidates, cycle rejection, atomic approval and timeout recovery passed. See [Feature 09 evidence](#feature-09-evidence). |
 | 10 | [Risks from project activity](feature-specs/10-risk-from-activity.md) | 05, 06, 08, 09 | Pending | — |
 | 11 | [Meetings and accountable follow-up](feature-specs/11-meetings-and-actions.md) | 06, 07, 08, 09 | Pending | — |
 | 12 | [Inbox and deadline delivery](feature-specs/12-inbox-and-deadlines.md) | 06, 08, 10 | Pending | — |
@@ -194,3 +194,20 @@ Verified on 2026-11-23 with Node 26.5.0, pnpm 10.34.9, Chromium, a local OIDC is
 Work-item proposals expire after seven days by default. Approval binds the exact revision and current requester and reviewer authority. Reviewers can follow the receipt to the applied work edit, and proposal values and evidence are resolved against the viewer's current access.
 
 All local Feature 08 acceptance checks passed. Feature 09 is ready.
+
+
+## Feature 09 evidence
+
+Verified on 2026-11-23 with Node 26.5.0, pnpm 10.34.9, Chromium, loopback OIDC and text-model fixtures, and isolated PostgreSQL, Redis and S3-compatible storage.
+
+| Check | Result |
+|---|---|
+| `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm build`, `git diff --check` | Passed, including ten Vitest tests. The build reported two Zod annotation warnings and a 501 kB entry chunk above Vite's warning threshold. |
+| `pnpm db:migrate` twice and `pnpm db:generate` | Fresh and repeat migrations passed, and Drizzle found no schema changes. An isolated Feature 08 database preserved a restricted project, original proposal revision and source document. The pre-upgrade approval applied through its existing receipt under the runtime role. |
+| `pnpm test:e2e --workers=3 --trace=on` and `pnpm test:e2e --project=briefs --no-deps --trace=on` | All 16 browser tests passed, including Redis recovery and Features 02–08. The focused [Feature 09 journey](../tests/e2e/brief-to-plan.spec.ts) passed again after the final UI loading change. It checked reflow at 1440, 1024, 390 and 320 CSS px. Trace frames showed the candidate editor, source excerpts, review actions and timeout recovery. |
+| Candidate review and provenance | A four-task brief yielded three dependency branches. The unnamed reviewer stayed unassigned, and the deadline resolved against the source timestamp and project timezone. A citation after an emoji resolved to the exact source text. The browser renamed, split, added and removed tasks, rejected a cycle with no work created, then approved the corrected revision. The resulting five tasks and four edges had one receipt and one batch effect. An applied task linked back to its brief, proposal revision and supporting passage. |
+| Access and retry behavior | An outsider received 404 for the brief, proposal and task provenance. The API database role could not read the brief table or claim extraction jobs. Concurrent retries and repeated queue delivery preserved one result and one approval effect. Selecting the same historical document revision reused its brief. Three provider timeouts preserved the text and enabled manual drafting without creating work. |
+
+A brief can use pasted text or an existing project document revision. Extraction uses the source revision's timestamp and the project timezone recorded at intake. Each source revision supports one brief job and up to one plan proposal. Extraction supports three attempts and a manual draft from the saved source.
+
+All local Feature 09 acceptance checks passed. Live OpenAI verification remains a staging check and requires the [worker configuration](../README.md#brief-extraction). Feature 10 is next.

@@ -4,14 +4,25 @@ import type {
   reviseProposalSchema,
   reviewReasonSchema,
   reviewVersionSchema,
+  saveBriefPlanSchema,
+  reviseBriefPlanSchema,
 } from "@kordos/contracts";
+import { dependencyPath } from "@kordos/domain";
 import type { Sql } from "postgres";
 import type { z } from "zod";
 import { databaseScope } from "./identity.js";
 
 type ReviewAction =
-  | { action: "create"; input: z.infer<typeof createProposalSchema> }
-  | { action: "revise"; input: z.infer<typeof reviseProposalSchema> }
+  | {
+      action: "create";
+      input: z.infer<typeof createProposalSchema | typeof saveBriefPlanSchema>;
+    }
+  | {
+      action: "revise";
+      input: z.infer<
+        typeof reviseProposalSchema | typeof reviseBriefPlanSchema
+      >;
+    }
   | { action: "submit" | "approve"; input: z.infer<typeof reviewVersionSchema> }
   | {
       action: "request_edit" | "reject";
@@ -53,7 +64,20 @@ export function reviewsStore(client: Sql) {
           SELECT kordos_reviews.mutate(${target.projectId ?? null}, ${target.proposalId ?? null},
             ${action}, ${JSON.stringify(input)}::jsonb) AS value
         `;
-        return row!.value;
+        const outcome = row!.value;
+        if (outcome.result !== "cycle" || !("plan" in input)) return outcome;
+        const { edges, tasks } = input.plan;
+        for (const { predecessorId, successorId } of edges) {
+          const path = dependencyPath(edges, successorId, predecessorId);
+          if (path) {
+            const titles = new Map(tasks.map((task) => [task.id, task.title]));
+            return {
+              ...outcome,
+              cycle: [predecessorId, ...path].map((id) => titles.get(id) ?? id),
+            };
+          }
+        }
+        return outcome;
       });
     },
     audit([actor, workspace]: [string, string], filter: AuditFilter) {

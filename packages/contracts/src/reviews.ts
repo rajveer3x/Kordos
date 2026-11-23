@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { briefPlanSchema } from "./briefs.js";
 import { idSchema } from "./identity.js";
 import { citationSchema, resolvedCitationSchema } from "./knowledge.js";
 import { personSchema, workFieldsSchema } from "./planning.js";
@@ -66,19 +67,23 @@ export const executionSchema = z.object({
   effectEventId: idSchema.nullable(),
   auditId: idSchema,
 });
-export const proposalSummarySchema = z.object({
+const summary = z.object({
   id: idSchema,
   projectId: idSchema,
   projectName: z.string(),
-  workId: idSchema,
   title: z.string(),
-  kind: z.enum(["task", "milestone"]),
   status: proposalStatusSchema,
   requester: personSchema,
   requestedAt: instant,
   revision: version,
 });
-export const proposalDetailSchema = proposalSummarySchema.extend({
+const workTarget = { workId: idSchema, kind: z.enum(["task", "milestone"]) };
+const planTarget = { briefId: idSchema, kind: z.literal("plan") };
+export const proposalSummarySchema = z.discriminatedUnion("kind", [
+  summary.extend(workTarget),
+  summary.extend(planTarget),
+]);
+const detail = summary.extend({
   version,
   revisionHead: version,
   targetVersion: version,
@@ -88,8 +93,6 @@ export const proposalDetailSchema = proposalSummarySchema.extend({
   reviewer: personSchema.nullable(),
   reviewedAt: instant.nullable(),
   reason: z.string().nullable(),
-  before: workFieldsSchema.nullable(),
-  after: workFieldsSchema.nullable(),
   owners: z.array(personSchema),
   evidence: z.array(resolvedCitationSchema),
   evidenceRestricted: z.boolean(),
@@ -98,6 +101,18 @@ export const proposalDetailSchema = proposalSummarySchema.extend({
   canSubmit: z.boolean(),
   canReview: z.boolean(),
 });
+export const proposalDetailSchema = z.discriminatedUnion("kind", [
+  detail.extend({
+    ...workTarget,
+    before: workFieldsSchema.nullable(),
+    after: workFieldsSchema.nullable(),
+  }),
+  detail.extend({
+    ...planTarget,
+    plan: briefPlanSchema.nullable(),
+    createdWork: z.record(idSchema, idSchema).nullable(),
+  }),
+]);
 export const reviewResponseSchema = z.object({
   id: idSchema,
   revision: version,

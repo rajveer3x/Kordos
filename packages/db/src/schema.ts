@@ -698,6 +698,73 @@ export const decisions = pgTable(
   ],
 );
 
+export const briefJobs = pgTable(
+  "brief_jobs",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    documentId: uuid("document_id").notNull(),
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    sourceRevision: integer("source_revision").notNull().default(1),
+    requesterId: uuid("requester_id").notNull(),
+    timeZone: text("time_zone").notNull(),
+    status: text().notNull().default("queued"),
+    attempt: integer().notNull().default(1),
+    version: integer().notNull().default(1),
+    candidates: jsonb(),
+    failure: text(),
+    leaseId: uuid("lease_id"),
+    leaseUntil: timestamp("lease_until", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    unique("brief_jobs_source_unique").on(
+      t.workspaceId,
+      t.projectId,
+      t.documentId,
+      t.sourceRevision,
+    ),
+    unique("brief_jobs_scope_unique").on(t.workspaceId, t.projectId, t.id),
+    foreignKey({
+      name: "brief_jobs_source_fk",
+      columns: [t.workspaceId, t.projectId, t.documentId, t.sourceRevision],
+      foreignColumns: [
+        documentVersions.workspaceId,
+        documentVersions.projectId,
+        documentVersions.documentId,
+        documentVersions.revision,
+      ],
+    }),
+    foreignKey({
+      name: "brief_jobs_requester_fk",
+      columns: [t.workspaceId, t.requesterId],
+      foreignColumns: [memberships.workspaceId, memberships.userId],
+    }),
+    check(
+      "brief_jobs_attempt",
+      sql`${t.attempt} BETWEEN 1 AND 3 AND ${t.version} > 0`,
+    ),
+    check(
+      "brief_jobs_status",
+      sql`${t.status} IN ('queued', 'running', 'ready', 'failed')
+      AND (${t.status} = 'running') = (${t.leaseId} IS NOT NULL AND ${t.leaseUntil} IS NOT NULL)
+      AND (${t.status} = 'ready') = (${t.candidates} IS NOT NULL)
+      AND (${t.status} = 'failed') = (${t.failure} IS NOT NULL)`,
+    ),
+    index("brief_jobs_project_date_idx").on(
+      t.workspaceId,
+      t.projectId,
+      t.createdAt,
+      t.id,
+    ),
+    index("brief_jobs_pending_idx")
+      .on(t.createdAt, t.id)
+      .where(sql`${t.status} IN ('queued', 'running')`),
+  ],
+);
+
 export const proposalStatus = pgEnum("proposal_status", [
   "draft",
   "pending",
@@ -717,7 +784,8 @@ export const proposals = pgTable(
     id: uuid().primaryKey().defaultRandom(),
     workspaceId: uuid("workspace_id").notNull(),
     projectId: uuid("project_id").notNull(),
-    workId: uuid("work_id").notNull(),
+    workId: uuid("work_id"),
+    briefId: uuid("brief_id"),
     requesterId: uuid("requester_id").notNull(),
     status: proposalStatus().notNull().default("draft"),
     revision: integer().notNull().default(1),
@@ -732,6 +800,20 @@ export const proposals = pgTable(
   },
   (table) => [
     unique().on(table.workspaceId, table.projectId, table.id),
+    unique("proposals_brief_unique").on(table.briefId),
+    check(
+      "proposals_one_target",
+      sql`num_nonnulls(${table.workId}, ${table.briefId}) = 1`,
+    ),
+    foreignKey({
+      name: "proposals_brief_fk",
+      columns: [table.workspaceId, table.projectId, table.briefId],
+      foreignColumns: [
+        briefJobs.workspaceId,
+        briefJobs.projectId,
+        briefJobs.id,
+      ],
+    }),
     foreignKey({
       name: "proposals_work_fk",
       columns: [table.workspaceId, table.projectId, table.workId],
@@ -802,7 +884,47 @@ export const proposalRevisions = pgTable(
     }),
     check(
       "proposal_revisions_command",
-      sql`${table.command}->>'kind' IS NOT DISTINCT FROM 'work.edit'`,
+      sql`coalesce(${table.command}->>'kind' IN ('work.edit', 'plan.create'), false)`,
+    ),
+  ],
+);
+
+export const planWorkItems = pgTable(
+  "plan_work_items",
+  {
+    workId: uuid("work_id").primaryKey(),
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    proposalId: uuid("proposal_id").notNull(),
+    revision: integer().notNull(),
+    candidateId: uuid("candidate_id").notNull(),
+  },
+  (t) => [
+    foreignKey({
+      name: "plan_work_items_work_fk",
+      columns: [t.workspaceId, t.projectId, t.workId],
+      foreignColumns: [
+        workItems.workspaceId,
+        workItems.projectId,
+        workItems.id,
+      ],
+    }),
+    foreignKey({
+      name: "plan_work_items_revision_fk",
+      columns: [t.workspaceId, t.projectId, t.proposalId, t.revision],
+      foreignColumns: [
+        proposalRevisions.workspaceId,
+        proposalRevisions.projectId,
+        proposalRevisions.proposalId,
+        proposalRevisions.revision,
+      ],
+    }),
+    unique("plan_work_items_candidate_unique").on(
+      t.workspaceId,
+      t.projectId,
+      t.proposalId,
+      t.revision,
+      t.candidateId,
     ),
   ],
 );

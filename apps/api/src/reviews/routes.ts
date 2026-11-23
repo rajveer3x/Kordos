@@ -6,6 +6,8 @@ import {
   proposalDetailSchema,
   proposalPageSchema,
   reviseProposalSchema,
+  saveBriefPlanSchema,
+  reviseBriefPlanSchema,
   reviewReasonSchema,
   reviewResponseSchema,
   reviewVersionSchema,
@@ -21,6 +23,10 @@ const proposals = workspace + "/proposals";
 const proposal = proposals + "/:id";
 const workspaceParams = z.object({ workspaceId: idSchema });
 const projectParams = workspaceParams.extend({ projectId: idSchema });
+const proposalPatchSchema = z.union([
+  reviseBriefPlanSchema,
+  reviseProposalSchema,
+]);
 const proposalParams = workspaceParams.extend({ id: idSchema });
 const proposalQuery = z.object({
   revision: z
@@ -35,7 +41,7 @@ const listQuery = z.object({
   status: z.literal("pending").optional(),
 });
 
-function saved(value: { result: string }, current?: unknown) {
+function saved(value: { result: string; cycle?: string[] }, current?: unknown) {
   switch (value.result) {
     case "saved":
       return reviewResponseSchema.parse(value);
@@ -46,6 +52,26 @@ function saved(value: { result: string }, current?: unknown) {
         403,
         "forbidden",
         "A project lead must review this change.",
+      );
+    case "cycle":
+      throw new IdentityError(
+        400,
+        "invalid_input",
+        value.cycle
+          ? `Dependencies contain a cycle (${value.cycle.join(" → ")}). Remove a dependency and try again.`
+          : "Dependencies contain a cycle. Remove a dependency and try again.",
+      );
+    case "invalid_owner":
+      throw new IdentityError(
+        400,
+        "invalid_input",
+        "Choose an eligible project owner or leave the task unassigned.",
+      );
+    case "invalid_plan":
+      throw new IdentityError(
+        400,
+        "invalid_input",
+        "Use unique tasks and dependencies between tasks in this plan.",
       );
     case "invalid_expiry":
       throw new IdentityError(
@@ -142,6 +168,21 @@ export function registerReviews(
     },
   );
 
+  api.post(
+    workspace + "/projects/:projectId/plan-proposals",
+    async (request, reply) => {
+      const actor = await requireActor(request);
+      const { workspaceId, projectId } = parse(projectParams, request.params);
+      const input = parse(saveBriefPlanSchema, request.body);
+      const result = await db.mutate(
+        [actor, workspaceId],
+        { projectId },
+        { action: "create", input },
+      );
+      return reply.code(201).send(saved(result));
+    },
+  );
+
   api.patch(proposal, async (request) => {
     const actor = await requireActor(request);
     const { workspaceId, id } = parse(proposalParams, request.params);
@@ -151,7 +192,7 @@ export function registerReviews(
       { proposalId: id },
       {
         action: "revise",
-        input: parse(reviseProposalSchema, request.body),
+        input: parse(proposalPatchSchema, request.body),
       },
     );
     if (result.result === "target_changed") {
@@ -160,6 +201,7 @@ export function registerReviews(
       );
       const current =
         data &&
+        data.kind !== "plan" &&
         workItemSchema.safeParse(
           await planning.work(scope, data.projectId, data.workId),
         ).data;

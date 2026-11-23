@@ -50,6 +50,13 @@
       "when": 1795427564545,
       "tag": "0006_approvals_and_audit",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795442806161,
+      "tag": "0007_brief_to_plan",
+      "breakpoints": true
     }
   ]
 }

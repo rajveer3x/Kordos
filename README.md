@@ -31,6 +31,21 @@ Create an Auth0 Regular Web Application that supports authorization code flow an
 
 After sign-in, create a workspace and choose its IANA timezone. In **Settings**, an administrator can create an invitation link, copy it to the recipient, and manage member roles. Invitations expire after seven days, and removing a member revokes their outstanding links to that workspace. To change the last administrator, assign the role to another member first.
 
+## Brief extraction
+
+Open a project and choose **Add a brief** to paste text, or choose **Plan from this revision** in a project document. Set `OPENAI_API_KEY` and `OPENAI_BRIEF_MODEL` in the worker environment to enable extraction with a model that supports Chat Completions structured outputs. The worker sends the selected source title and text. It resolves today, tomorrow and weekday phrases using the source revision’s timestamp and the project timezone at intake. You can enter dates or plan manually from the saved brief. [OpenAI structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs)
+
+The extraction worker uses `BRIEF_WORKER_DATABASE_URL`. Fresh local Compose databases provision this restricted login using the example environment. For a local database volume created before Feature 09, run the migration, then set a password for the worker role from the local PostgreSQL console and add the matching URL to `.env`.
+
+```sh
+docker compose exec postgres psql -U kordos_migrator -d kordos
+```
+
+```sql
+ALTER ROLE kordos_brief_worker LOGIN;
+\password kordos_brief_worker
+```
+
 ## Interface preview
 
 With `pnpm dev` running, open the [populated project](http://127.0.0.1:4317/preview/#/projects/checkout) or the [empty project](http://127.0.0.1:4317/preview/#/projects/developer-portal). The preview uses synthetic workspace data in development. The live entry point at `/` routes to sign-in.
@@ -45,7 +60,7 @@ pnpm test
 pnpm build
 ```
 
-With Compose running and the database migrated, stop any running `pnpm dev` processes before running the browser check. Playwright starts all three app processes and temporarily stops Redis in the local Compose project. The identity check uses a loopback OIDC fixture on port 4399, configurable with `TEST_OIDC_PORT`.
+With Compose running and the database migrated, stop any running `pnpm dev` processes before running the browser check. Playwright starts all three app processes and temporarily stops Redis in the local Compose project. The identity check uses a loopback OIDC fixture on port 4399, configurable with `TEST_OIDC_PORT`. Brief extraction uses a loopback model fixture on port 4429, configurable with `TEST_BRIEF_MODEL_PORT`.
 
 ```sh
 pnpm exec playwright install chromium

@@ -23,6 +23,7 @@ export default defineConfig({
         "**/realtime-collaboration.spec.ts",
         "**/documents-and-decisions.spec.ts",
         "**/approvals-and-audit.spec.ts",
+        "**/brief-to-plan.spec.ts",
       ],
     },
     {
@@ -60,6 +61,12 @@ export default defineConfig({
       dependencies: ["knowledge"],
       use: { actionTimeout: 10_000 },
     },
+    {
+      name: "briefs",
+      testMatch: "**/brief-to-plan.spec.ts",
+      dependencies: ["reviews"],
+      use: { actionTimeout: 10_000 },
+    },
   ],
   webServer: {
     command: "pnpm dev",
@@ -68,6 +75,10 @@ export default defineConfig({
       AUTH0_ISSUER: issuer,
       AUTH0_CLIENT_ID: oidcClientId,
       AUTH0_CLIENT_SECRET: oidcClientSecret,
+      OPENAI_BASE_URL: `http://127.0.0.1:${process.env.TEST_BRIEF_MODEL_PORT ?? 4429}/v1/`,
+      OPENAI_API_KEY: "test-brief-key",
+      OPENAI_BRIEF_MODEL: "brief-fixture",
+      BRIEF_MODEL_TIMEOUT_MS: "700",
     },
     url: `${baseURL}/api/health/ready`,
     timeout: 45_000,

@@ -1,6 +1,8 @@
+import { PlanEditor, PlanPreview, TaskEvidence } from "../briefs/plan";
 import {
   projectPeopleSchema,
   proposalDetailSchema,
+  briefPlanSchema,
   proposalPageSchema,
   workItemSchema,
   type ProposalDetail,
@@ -17,7 +19,7 @@ import {
   StatusLabel,
 } from "../../components/ui";
 import { denied, read } from "../identity/api";
-import { EvidencePassage } from "../knowledge/evidence";
+import { EvidencePassage } from "../knowledge/evidence-passage";
 import { citationPath } from "../knowledge/knowledge-client";
 import {
   planningRefresh,
@@ -58,9 +60,9 @@ const issueMessage: Record<
   expired:
     "The approval expired before it could be applied. Revise the proposal to set a new expiry.",
   target_unavailable:
-    "The work item or project was archived. Restore it before revising the proposal.",
+    "The review target or project was archived. Restore it before revising the proposal.",
   invalid_change:
-    "The work item could not accept the change. Check the proposed values and current owner eligibility before submitting a new revision.",
+    "Check the proposed values and current owner eligibility before submitting a new revision.",
   ambiguous_effect:
     "An event already exists for this execution. Verify the work item and its audit history before attempting another change.",
   worker_failed:
@@ -157,7 +159,10 @@ export function ReviewsPage() {
                   <li key={item.id}>
                     <div className="planning-item-copy">
                       <Link to={`${path}/${item.id}`}>
-                        Edit {item.kind} · {item.title}
+                        {item.kind === "plan"
+                          ? "Create project plan"
+                          : `Edit ${item.kind}`}{" "}
+                        · {item.title}
                       </Link>
                       <span>
                         {item.projectName} · {item.requester.name} ·{" "}
@@ -273,10 +278,14 @@ function ReviewDetails({
     revision: proposal.revision,
     expectedVersion: proposal.version,
   };
-  const target = workspacePath(
-    `${projectPath(proposal.projectId, "work")}/${proposal.workId}`,
+  const projectBase = workspacePath(
+    projectPath(proposal.projectId),
     workspace.id,
   );
+  const target =
+    proposal.kind === "plan"
+      ? `${projectBase}/briefs/${proposal.briefId}`
+      : `${projectBase}/work/${proposal.workId}`;
   const receipt = proposal.receipt;
   const targetChanged =
     current &&
@@ -308,7 +317,11 @@ function ReviewDetails({
   return (
     <>
       <PageHeading
-        title={`Edit ${proposal.kind} · ${proposal.before?.title ?? proposal.title}`}
+        title={
+          proposal.kind === "plan"
+            ? `Plan from ${proposal.title}`
+            : `Edit ${proposal.kind} · ${proposal.before?.title ?? proposal.title}`
+        }
       />
       <section className="glass-panel planning-panel">
         <div className="planning-heading">
@@ -326,7 +339,11 @@ function ReviewDetails({
         </div>
         <dl className="planning-facts">
           <div>
-            <dt>Affected {proposal.kind}</dt>
+            <dt>
+              {proposal.kind === "plan"
+                ? "Source brief"
+                : `Affected ${proposal.kind}`}
+            </dt>
             <dd>
               <Link to={target}>{proposal.title}</Link>
             </dd>
@@ -343,10 +360,12 @@ function ReviewDetails({
               {proposal.revision} · {proposal.author.name}
             </dd>
           </div>
-          <div>
-            <dt>Work version under review</dt>
-            <dd>{proposal.targetVersion}</dd>
-          </div>
+          {proposal.kind !== "plan" && (
+            <div>
+              <dt>Work version under review</dt>
+              <dd>{proposal.targetVersion}</dd>
+            </div>
+          )}
           <div>
             <dt>Expires</dt>
             <dd>
@@ -383,8 +402,25 @@ function ReviewDetails({
           <p className="planning-conflict">{issueMessage[receipt.issue]}</p>
         )}
         <section className="review-section">
-          <h2>Work item changes</h2>
-          {proposal.before && proposal.after ? (
+          <h2>
+            {proposal.kind === "plan"
+              ? "Proposed tasks and dependencies"
+              : "Work item changes"}
+          </h2>
+          {proposal.kind === "plan" && proposal.plan ? (
+            <PlanPreview
+              plan={proposal.plan}
+              owners={proposal.owners}
+              evidence={(task) => (
+                <TaskEvidence task={task} evidence={proposal.evidence} />
+              )}
+              workLinks={Object.fromEntries(
+                Object.entries(proposal.createdWork ?? {}).map(
+                  ([candidate, id]) => [candidate, `${projectBase}/work/${id}`],
+                ),
+              )}
+            />
+          ) : proposal.kind !== "plan" && proposal.before && proposal.after ? (
             <ReviewDiff
               before={proposal.before}
               after={proposal.after}
@@ -399,7 +435,10 @@ function ReviewDetails({
         </section>
         <section className="review-section">
           <h2>Evidence</h2>
-          {proposal.evidence.map((entry, index) => (
+          {(proposal.kind === "plan"
+            ? proposal.evidence.slice(0, 1)
+            : proposal.evidence
+          ).map((entry, index) => (
             <EvidencePassage
               key={citationPath(workspace.id, entry.source) + index}
               entry={entry}
@@ -444,20 +483,31 @@ function ReviewDetails({
                     workspace.id,
                   )}
                 >
-                  Open applied work edit
+                  {proposal.kind === "plan"
+                    ? "Open applied plan in audit history"
+                    : "Open applied work edit"}
                 </Link>
               )}
             </div>
           </section>
         )}
-        {editor && proposal.canEdit && (
-          <ProposalEditor
-            proposal={editor}
-            head={head}
-            path={path}
-            onClose={() => setEditor(undefined)}
-          />
-        )}
+        {editor &&
+          proposal.canEdit &&
+          (editor.kind === "plan" ? (
+            <PlanRevisionEditor
+              proposal={editor}
+              head={head}
+              path={path}
+              onClose={() => setEditor(undefined)}
+            />
+          ) : (
+            <ProposalEditor
+              proposal={editor}
+              head={head}
+              path={path}
+              onClose={() => setEditor(undefined)}
+            />
+          ))}
         {decision && proposal.canReview && (
           <form
             className="planning-form"
@@ -516,7 +566,7 @@ function ReviewDetails({
                   disabled={command.busy}
                   onClick={() => review("approve")}
                 >
-                  Approve change
+                  {proposal.kind === "plan" ? "Approve plan" : "Approve change"}
                 </Button>
               )}
               {proposal.canEdit && (
@@ -574,13 +624,88 @@ function ReviewDetails({
   );
 }
 
+function PlanRevisionEditor({
+  proposal,
+  path,
+  head,
+  onClose,
+}: {
+  proposal: Extract<ProposalDetail, { kind: "plan" }>;
+  path: string;
+  head: string;
+  onClose: () => void;
+}) {
+  const { api, key } = usePlanning();
+  const navigate = useNavigate();
+  const command = usePlanningCommand();
+  const people = useQuery({
+    queryKey: [...key, "project", proposal.projectId, "people"],
+    queryFn: ({ signal }) =>
+      read(
+        `${api}/projects/${proposal.projectId}/people`,
+        projectPeopleSchema,
+        signal,
+      ),
+    ...planningRefresh,
+  });
+  if (people.isPending)
+    return <AsyncState kind="loading" message="Loading eligible owners…" />;
+  if (people.isError)
+    return (
+      <AsyncState
+        kind="error"
+        message="Could not load eligible owners."
+        retry={() => void people.refetch()}
+      />
+    );
+  return (
+    <section className="review-section">
+      <h2>Revise plan</h2>
+      <PlanEditor
+        initial={proposal.plan}
+        owners={people.data.owners}
+        busy={command.busy}
+        evidence={(task) => (
+          <TaskEvidence task={task} evidence={proposal.evidence} />
+        )}
+        onCancel={onClose}
+        onSave={(plan) => {
+          const validated = briefPlanSchema.safeParse(plan);
+          if (!validated.success) {
+            command.invalid("Check the task titles, dates and estimates.");
+            return;
+          }
+          void command.save(
+            path,
+            "PATCH",
+            {
+              revision: proposal.revision,
+              expectedVersion: proposal.version,
+              plan: validated.data,
+            },
+            () => {
+              onClose();
+              navigate(head, { replace: true });
+            },
+          );
+        }}
+      />
+      {command.error && (
+        <p className="planning-error" role="alert">
+          {command.error.message}
+        </p>
+      )}
+    </section>
+  );
+}
+
 function ProposalEditor({
   proposal,
   head,
   path,
   onClose,
 }: {
-  proposal: ProposalDetail;
+  proposal: Exclude<ProposalDetail, { kind: "plan" }>;
   head: string;
   path: string;
   onClose: () => void;

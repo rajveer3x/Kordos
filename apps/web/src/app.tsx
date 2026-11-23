@@ -32,6 +32,16 @@ import "./features/workspace/workspace.css";
 
 const ProjectGraph = lazy(() => import("./features/planning/project-graph"));
 const ProjectKnowledge = lazy(() => import("./features/knowledge/routes"));
+const BriefsPage = lazy(() =>
+  import("./features/briefs/briefs").then(({ BriefsPage }) => ({
+    default: BriefsPage,
+  })),
+);
+const BriefJobPage = lazy(() =>
+  import("./features/briefs/briefs").then(({ BriefJobPage }) => ({
+    default: BriefJobPage,
+  })),
+);
 const ReviewsPage = lazy(() =>
   import("./features/reviews/reviews").then(({ ReviewsPage }) => ({
     default: ReviewsPage,
@@ -53,7 +63,7 @@ const ProjectAudit = lazy(() =>
   })),
 );
 
-function ReviewSurface({ children }: { children: ReactNode }) {
+function LazyPage({ children }: { children: ReactNode }) {
   return (
     <Suspense fallback={<AsyncState kind="loading" message="Loading page…" />}>
       {children}
@@ -122,13 +132,13 @@ export function WorkspaceRoutes({
               ) : live && destination.id === "projects" ? (
                 <ProjectDirectory projects={workspace.projects} />
               ) : live && destination.id === "reviews" ? (
-                <ReviewSurface>
+                <LazyPage>
                   <ReviewsPage />
-                </ReviewSurface>
+                </LazyPage>
               ) : live && destination.id === "audit" ? (
-                <ReviewSurface>
+                <LazyPage>
                   <AuditPage />
-                </ReviewSurface>
+                </LazyPage>
               ) : (
                 <WorkspacePage
                   destination={destination}
@@ -142,9 +152,9 @@ export function WorkspaceRoutes({
           <Route
             path="reviews/:proposalId"
             element={
-              <ReviewSurface>
+              <LazyPage>
                 <ReviewPage />
-              </ReviewSurface>
+              </LazyPage>
             }
           />
         )}
@@ -179,13 +189,29 @@ export function WorkspaceRoutes({
                   </Suspense>
                 }
               />
+              <Route
+                path="briefs"
+                element={
+                  <LazyPage>
+                    <BriefsPage />
+                  </LazyPage>
+                }
+              />
+              <Route
+                path="briefs/:briefId"
+                element={
+                  <LazyPage>
+                    <BriefJobPage />
+                  </LazyPage>
+                }
+              />
               <Route path="settings" element={<ProjectSettings />} />
               <Route
                 path="activity"
                 element={
-                  <ReviewSurface>
+                  <LazyPage>
                     <ProjectAudit />
-                  </ReviewSurface>
+                  </LazyPage>
                 }
               />
               <Route

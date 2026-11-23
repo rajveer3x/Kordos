@@ -6,7 +6,7 @@ import {
   type WorkItem,
 } from "@kordos/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import {
   useLocation,
   useNavigate,
@@ -25,6 +25,8 @@ import {
 } from "./planning-client";
 import { WorkEditor, workLabels } from "./work-editor";
 import type { WorkOutlet } from "./work-views";
+
+const WorkBriefOrigin = lazy(() => import("../briefs/work-origin"));
 
 export function WorkInspector({ create = false }: { create?: boolean }) {
   const { workId } = useParams();
@@ -312,6 +314,9 @@ function WorkDetails({
         projectId={item.projectId}
         subject={{ kind: "task", id: item.id }}
       />
+      <Suspense fallback={null}>
+        <WorkBriefOrigin path={path} item={item} />
+      </Suspense>
       <WorkHistory path={path} item={item} />
     </div>
   );

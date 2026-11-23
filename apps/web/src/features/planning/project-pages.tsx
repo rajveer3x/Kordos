@@ -268,7 +268,14 @@ export function PlanningOverview() {
             : "Visible to this workspace"}{" "}
           · {details.timeZone}
         </p>
-        <Link to={`${base}/work`}>View project work</Link>
+        <div className="planning-actions">
+          <Link to={`${base}/work`}>View project work</Link>
+          <Link className="button button--secondary" to={`${base}/briefs`}>
+            {details.archived || details.role === "viewer"
+              ? "View briefs"
+              : "Add a brief"}
+          </Link>
+        </div>
       </section>
       <DiscussionPanel
         projectId={project.id}
