@@ -29,6 +29,13 @@
       "when": 1795423358033,
       "tag": "0003_dependencies_and_forecasts",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795425345171,
+      "tag": "0004_comments_and_presence",
+      "breakpoints": true
     }
   ]
 }

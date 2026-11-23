@@ -10,6 +10,8 @@ import type { connectDatabase } from "@kordos/db";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { Redis } from "ioredis";
 import { z } from "zod";
+import { attachCollaboration } from "../collaboration/live.js";
+import { registerCollaboration } from "../collaboration/routes.js";
 import type { Config } from "../config.js";
 import { registerForecast } from "../planning/forecast-routes.js";
 import { registerPlanning } from "../planning/routes.js";
@@ -25,7 +27,7 @@ export function registerIdentity(
   redis: Redis,
   stores: Pick<
     ReturnType<typeof connectDatabase>,
-    "identity" | "planning" | "forecast"
+    "identity" | "planning" | "forecast" | "collaboration"
   >,
 ) {
   const session = createSessionService(config, redis);
@@ -34,6 +36,13 @@ export function registerIdentity(
   app.register(
     async (api) => {
       await api.register(cookie);
+      attachCollaboration(
+        api,
+        redis,
+        config.origin.origin,
+        stores.collaboration,
+        (header) => session.actor(api.parseCookie(header)),
+      );
       api.addHook("onRequest", async (request, reply) => {
         reply
           .header("Cache-Control", "no-store")
@@ -83,13 +92,14 @@ export function registerIdentity(
       });
 
       async function requireActor(request: FastifyRequest) {
-        const actor = await session.actor(request);
+        const actor = await session.actor(request.cookies);
         if (actor) return actor;
         throw new IdentityError(401, "signed_out", "Sign in to continue.");
       }
 
       registerPlanning(api, stores.planning, requireActor);
       registerForecast(api, stores.forecast, requireActor);
+      registerCollaboration(api, stores.collaboration, requireActor);
 
       api.post("/auth/login", async (request, reply) => {
         if (!config.auth) throw unavailable();
@@ -134,7 +144,7 @@ export function registerIdentity(
       });
 
       api.get("/session", async (request) => {
-        const actor = await session.actor(request);
+        const actor = await session.actor(request.cookies);
         return {
           identity: (actor ? await db.session(actor) : null) ?? null,
           signInAvailable: Boolean(config.auth),

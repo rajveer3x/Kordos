@@ -3,6 +3,7 @@ import { asc, eq, isNull, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { z } from "zod";
+import { collaborationStore } from "./collaboration.js";
 import { forecastStore } from "./forecast.js";
 import { identityStore } from "./identity.js";
 import { planningStore } from "./planning.js";
@@ -48,6 +49,7 @@ export function connectDatabase(url: string) {
   }
 
   return {
+    collaboration: collaborationStore(client),
     identity: identityStore(client),
     planning: planningStore(client),
     forecast: forecastStore(client),

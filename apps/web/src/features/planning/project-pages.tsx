@@ -17,6 +17,7 @@ import {
   PageHeading,
   StatusLabel,
 } from "../../components/ui";
+import { DiscussionPanel } from "../collaboration/discussion-panel";
 import { denied, read } from "../identity/api";
 import {
   Breadcrumbs,
@@ -269,6 +270,10 @@ export function PlanningOverview() {
         </p>
         <Link to={`${base}/work`}>View project work</Link>
       </section>
+      <DiscussionPanel
+        projectId={project.id}
+        subject={{ kind: "project", id: project.id }}
+      />
     </>
   );
 }

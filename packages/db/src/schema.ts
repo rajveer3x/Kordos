@@ -1,4 +1,5 @@
 import {
+  bigint,
   boolean,
   check,
   date,
@@ -320,6 +321,7 @@ export const outbox = pgTable(
       .notNull()
       .defaultNow(),
     deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+    commentSequence: bigint("comment_sequence", { mode: "bigint" }),
   },
   (table) => [
     unique().on(table.workspaceId, table.actorId, table.mutationId),
@@ -333,6 +335,14 @@ export const outbox = pgTable(
       columns: [table.workspaceId, table.actorId],
       foreignColumns: [memberships.workspaceId, memberships.userId],
     }),
+    index("outbox_comment_feed_idx")
+      .on(
+        table.workspaceId,
+        table.projectId,
+        sql`(${table.request}->'subject')`,
+        table.commentSequence,
+      )
+      .where(sql`${table.commentSequence} IS NOT NULL`),
     index("outbox_pending_idx")
       .on(table.createdAt, table.id)
       .where(sql`${table.deliveredAt} IS NULL`),
@@ -415,5 +425,106 @@ export const scenarios = pgTable(
       columns: [table.workspaceId, table.actorId],
       foreignColumns: [memberships.workspaceId, memberships.userId],
     }),
+  ],
+);
+
+export const comments = pgTable(
+  "comments",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    subjectKind: text("subject_kind").notNull(),
+    subjectId: uuid("subject_id").notNull(),
+    workId: uuid("work_id"),
+    parentId: uuid("parent_id"),
+    authorId: uuid("author_id").notNull(),
+    mutationId: uuid("mutation_id").notNull(),
+    body: text().notNull(),
+    mentionIds: uuid("mention_ids").array().notNull(),
+    version: integer().notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    editedAt: timestamp("edited_at", { withTimezone: true }),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    resolvedBy: uuid("resolved_by"),
+  },
+  (table) => [
+    unique("comments_subject_id_unique").on(
+      table.workspaceId,
+      table.projectId,
+      table.subjectKind,
+      table.subjectId,
+      table.id,
+    ),
+    foreignKey({
+      name: "comments_project_fk",
+      columns: [table.workspaceId, table.projectId],
+      foreignColumns: [projects.workspaceId, projects.id],
+    }),
+    foreignKey({
+      name: "comments_work_fk",
+      columns: [table.workspaceId, table.projectId, table.workId],
+      foreignColumns: [
+        workItems.workspaceId,
+        workItems.projectId,
+        workItems.id,
+      ],
+    }),
+    foreignKey({
+      name: "comments_parent_fk",
+      columns: [
+        table.workspaceId,
+        table.projectId,
+        table.subjectKind,
+        table.subjectId,
+        table.parentId,
+      ],
+      foreignColumns: [
+        table.workspaceId,
+        table.projectId,
+        table.subjectKind,
+        table.subjectId,
+        table.id,
+      ],
+    }),
+    foreignKey({
+      name: "comments_author_fk",
+      columns: [table.workspaceId, table.authorId],
+      foreignColumns: [memberships.workspaceId, memberships.userId],
+    }),
+    foreignKey({
+      name: "comments_resolver_fk",
+      columns: [table.workspaceId, table.resolvedBy],
+      foreignColumns: [memberships.workspaceId, memberships.userId],
+    }),
+    check(
+      "comments_subject",
+      sql`(
+      (${table.subjectKind} = 'project' AND ${table.subjectId} = ${table.projectId} AND ${table.workId} IS NULL)
+      OR (${table.subjectKind} = 'task' AND ${table.workId} IS NOT NULL AND ${table.workId} = ${table.subjectId})
+      OR (${table.subjectKind} IN ('document', 'meeting') AND ${table.workId} IS NULL)
+    )`,
+    ),
+    check(
+      "comments_content",
+      sql`char_length(btrim(${table.body})) BETWEEN 1 AND 4000
+      AND cardinality(${table.mentionIds}) <= 20 AND ${table.version} > 0`,
+    ),
+    check(
+      "comments_resolution",
+      sql`(${table.resolvedAt} IS NULL AND ${table.resolvedBy} IS NULL)
+      OR (${table.parentId} IS NULL AND ${table.resolvedAt} IS NOT NULL AND ${table.resolvedBy} IS NOT NULL)`,
+    ),
+    index("comments_subject_threads_idx").on(
+      table.workspaceId,
+      table.projectId,
+      table.subjectKind,
+      table.subjectId,
+      table.parentId,
+      table.createdAt,
+      table.id,
+    ),
   ],
 );

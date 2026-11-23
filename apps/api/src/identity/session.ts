@@ -58,14 +58,14 @@ export function createSessionService(config: Config, redis: Redis) {
     return provider;
   }
 
-  function sessionKey(request: FastifyRequest) {
-    const token = request.cookies[sessionCookie];
+  function sessionKey(cookies: FastifyRequest["cookies"]) {
+    const token = cookies[sessionCookie];
     return token && `kordos:session:${digest(token)}`;
   }
 
   return {
-    async actor(request: FastifyRequest) {
-      const key = sessionKey(request);
+    async actor(cookies: FastifyRequest["cookies"]) {
+      const key = sessionKey(cookies);
       if (!key) return;
       const parsed = idSchema.safeParse(await redis.get(key));
       return parsed.success ? parsed.data : undefined;
@@ -138,7 +138,7 @@ export function createSessionService(config: Config, redis: Redis) {
       actorId: string,
     ) {
       const token = opaqueToken();
-      const oldKey = sessionKey(request);
+      const oldKey = sessionKey(request.cookies);
       if (oldKey) await redis.del(oldKey);
       await redis.set(
         `kordos:session:${digest(token)}`,
@@ -152,7 +152,7 @@ export function createSessionService(config: Config, redis: Redis) {
       });
     },
     async signOut(request: FastifyRequest, reply: FastifyReply) {
-      const key = sessionKey(request);
+      const key = sessionKey(request.cookies);
       if (key) await redis.del(key);
       reply.clearCookie(sessionCookie, cookie);
       const login = request.cookies[flowCookie];

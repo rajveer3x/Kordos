@@ -1,0 +1,83 @@
+.discussion {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.discussion h2,
+.discussion p {
+  margin: 0;
+}
+
+.discussion-presence,
+.discussion-actions,
+.discussion-entry header {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.discussion-presence,
+.discussion-mentions {
+  color: var(--secondary);
+  font-size: 0.875rem;
+}
+
+.discussion-list {
+  display: grid;
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.discussion-list:empty {
+  display: none;
+}
+
+.discussion-thread {
+  display: grid;
+  gap: 8px;
+  padding-block: 12px;
+  border-block-start: 1px solid var(--hairline);
+}
+
+.discussion-replies {
+  border-inline-start: 1px solid var(--hairline);
+  margin-inline-start: 8px;
+  padding-inline-start: 12px;
+}
+
+.discussion-entry,
+.discussion-composer,
+.discussion-composer label {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.discussion .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.discussion-body {
+  white-space: pre-wrap;
+}
+
+.discussion-composer textarea {
+  resize: vertical;
+  width: 100%;
+}
+
+.discussion-mention-picker {
+  justify-self: start;
+}

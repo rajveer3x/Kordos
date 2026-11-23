@@ -15,6 +15,7 @@ import {
 } from "react-router";
 import { Sheet } from "../../components/sheet";
 import { AsyncState, Button, StatusLabel } from "../../components/ui";
+import { DiscussionPanel } from "../collaboration/discussion-panel";
 import { denied, read } from "../identity/api";
 import {
   planningRefresh,
@@ -284,6 +285,10 @@ function WorkDetails({
           </p>
         </>
       )}
+      <DiscussionPanel
+        projectId={item.projectId}
+        subject={{ kind: "task", id: item.id }}
+      />
       <WorkHistory path={path} item={item} />
     </div>
   );

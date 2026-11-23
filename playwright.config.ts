@@ -20,6 +20,7 @@ export default defineConfig({
         "**/identity-tenancy.spec.ts",
         "**/projects-and-work.spec.ts",
         "**/dependencies-and-forecasts.spec.ts",
+        "**/realtime-collaboration.spec.ts",
       ],
     },
     {
@@ -37,6 +38,12 @@ export default defineConfig({
       name: "forecast",
       testMatch: "**/dependencies-and-forecasts.spec.ts",
       dependencies: ["planning"],
+      use: { actionTimeout: 10_000 },
+    },
+    {
+      name: "collaboration",
+      testMatch: "**/realtime-collaboration.spec.ts",
+      dependencies: ["forecast"],
       use: { actionTimeout: 10_000 },
     },
   ],

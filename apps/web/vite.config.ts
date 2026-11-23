@@ -23,6 +23,7 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
       proxy: {
         "/api": `http://127.0.0.1:${apiPort}`,
+        "/realtime": { target: `http://127.0.0.1:${apiPort}`, ws: true },
       },
     },
   };

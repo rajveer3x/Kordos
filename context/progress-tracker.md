@@ -1,8 +1,8 @@
 # Delivery tracker
 
-**Current state** — Features 01 through 05 are verified locally.
+**Current state** — Features 01 through 06 are verified locally.
 
-**Next ready feature** — [06 · Comments and presence](feature-specs/06-realtime-collaboration.md). Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
+**Next ready feature** — [07 · Documents and decision register](feature-specs/07-documents-and-decisions.md). Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
 
 | ID | Feature prompt | Depends on | State | Evidence |
 |---|---|---|---|---|
@@ -11,7 +11,7 @@
 | 03 | [Identity and tenancy](feature-specs/03-identity-and-tenancy.md) | 01, 02 | Done | Invitation concurrency, workspace switching, revocation and runtime role isolation passed with the refreshed interface. See [Feature 03 evidence](#feature-03-evidence). |
 | 04 | [Projects and work items](feature-specs/04-projects-and-work.md) | 03 | Done | Board edits, private project isolation, archiving and attributed reopening passed. See [Feature 04 evidence](#feature-04-evidence). |
 | 05 | [Dependencies and forecasts](feature-specs/05-graph-and-forecasts.md) | 04 | Done | Forecast dates, slack, concurrent cycle rejection and private previews passed. See [Feature 05 evidence](#feature-05-evidence). |
-| 06 | [Comments and presence](feature-specs/06-realtime-collaboration.md) | 04 | Pending | — |
+| 06 | [Comments and presence](feature-specs/06-realtime-collaboration.md) | 04 | Done | Reconnect deduplication, private room revocation and presence expiry passed. See [Feature 06 evidence](#feature-06-evidence). |
 | 07 | [Documents and decision register](feature-specs/07-documents-and-decisions.md) | 04, 06 | Pending | — |
 | 08 | [Approval engine and audit history](feature-specs/08-approvals-and-audit.md) | 04, 07 | Pending | — |
 | 09 | [Brief to approved project plan](feature-specs/09-brief-to-plan.md) | 05, 07, 08 | Pending | — |
@@ -144,3 +144,19 @@ Verified on 2026-11-23 with Node 26.5.0, pnpm 10.34.9, Chromium, a local OIDC is
 Open work uses remaining workday estimates. Missing estimates reserve one provisional workday and flag downstream dates as uncertain. Slack uses the earlier of the milestone forecast and commitment. Closing a scenario returns to the baseline and keeps the private preview available at its URL. Resetting deletes the preview. The approval workflow can use the versioned scenario payload in a later feature.
 
 All local Feature 05 acceptance checks passed. Feature 06 is ready.
+
+## Feature 06 evidence
+
+Verified on 2026-11-23 with Node 26.5.0, pnpm 10.34.9, Chromium, a local OIDC issuer and isolated PostgreSQL and Redis services.
+
+| Check | Result |
+|---|---|
+| `pnpm install --frozen-lockfile --offline`, `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm build`, `git diff --check` | Passed. All eight Vitest tests passed. The build emitted the existing Zod annotation warnings. |
+| `pnpm db:migrate` twice and `pnpm db:generate` | Fresh and repeat migrations passed, and Drizzle reported no schema changes. The existing local project was preserved after migration. |
+| `pnpm test:e2e --workers=3 --trace=on` and `pnpm test:e2e --project=collaboration --no-deps --trace=on` | All 13 Chromium tests passed in the full suite. The focused rerun confirmed the task discussion reflows at 1440, 1024, 390 and 320 CSS px. |
+| Reconnect and editing | The [Feature 06 browser test](../tests/e2e/realtime-collaboration.spec.ts) held HTTP replay open while the same event arrived live. The two sessions each showed one comment. The recipient received one announcement and retained keyboard focus. Resubmitting the mutation ID returned the original comment with one audit and outbox pair. Project and task discussions stayed distinct. Mentions, replies, edits, stale versions, resolution and reopening passed. |
+| Access and presence | A workspace admin outside the private project and a lead guessing a nonexistent task could not join. Removing the contributor revoked the open room, denied replay and suppressed the next live event. Runtime SQL returned no comments to either denied actor. Stopping Redis heartbeat renewal removed presence while the saved comment remained visible. |
+
+Viewers can read discussions, contributors can post, and thread authors and project leads can resolve or reopen threads. Archived discussions are read-only. The API wakes Socket.IO delivery on PostgreSQL change notifications and replays from the durable outbox. Presence expires after 15 seconds without a heartbeat. The shared subject contract is ready for documents and meetings, and Feature 12 covers inbox delivery for mentions.
+
+All local Feature 06 acceptance checks passed. Feature 07 is ready.
