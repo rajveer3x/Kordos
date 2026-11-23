@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { idSchema } from "./identity.js";
+import { passageAnchorSchema } from "./knowledge.js";
 import { personSchema } from "./planning.js";
 
 export const commentSubjectSchema = z.object({
@@ -34,6 +35,7 @@ export const commentCommandSchema = z.discriminatedUnion("action", [
     ...mutation,
     ...content,
     parentId: idSchema.nullable(),
+    anchor: passageAnchorSchema.optional(),
   }),
   z.object({ action: z.literal("edit"), ...target, ...content }),
   z.object({ action: z.enum(["resolve", "reopen"]), ...target }),
@@ -44,6 +46,7 @@ export const commentSchema = z.object({
   id: idSchema,
   mutationId: idSchema,
   parentId: idSchema.nullable(),
+  anchor: passageAnchorSchema.nullable().optional(),
   author: personSchema,
   body: z.string(),
   mentions: z.array(personSchema),

@@ -5,6 +5,7 @@ import {
   type Comment,
   type CommentCommand,
   type CommentSnapshot,
+  type PassageAnchor,
 } from "@kordos/contracts";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -15,8 +16,10 @@ import {
   useState,
   type FormEvent,
 } from "react";
+import { Link } from "react-router";
 import { AsyncState, Button } from "../../components/ui";
 import { ApiError, denied, errorMessage, read, request } from "../identity/api";
+import { citationPath } from "../knowledge/knowledge-client";
 import { planningRefresh, usePlanning } from "../planning/planning-client";
 import { useDiscussionLive } from "./discussion-live";
 import "./discussion.css";
@@ -33,12 +36,19 @@ type Save = (command: Command, mutationId: string) => Promise<void>;
 export function DiscussionPanel({
   projectId,
   subject,
-}: Pick<CollaborationScope, "projectId" | "subject">) {
+  anchor,
+  onAnchoredPost,
+}: Pick<CollaborationScope, "projectId" | "subject"> & {
+  anchor?: PassageAnchor;
+  onAnchoredPost?: () => void;
+}) {
   const { actorId, workspace, api } = usePlanning();
   return (
     <Discussion
       key={`${actorId}:${workspace.id}:${workspace.role}:${projectId}:${subject.kind}:${subject.id}`}
       scope={{ workspaceId: workspace.id, projectId, subject }}
+      anchor={anchor}
+      onAnchoredPost={onAnchoredPost}
       path={`${api}/projects/${projectId}/discussions/${subject.kind}/${subject.id}`}
     />
   );
@@ -47,9 +57,13 @@ export function DiscussionPanel({
 function Discussion({
   scope,
   path,
+  anchor,
+  onAnchoredPost,
 }: {
   scope: CollaborationScope;
   path: string;
+  anchor?: PassageAnchor;
+  onAnchoredPost?: () => void;
 }) {
   const { actorId, workspace } = usePlanning();
   const {
@@ -113,6 +127,8 @@ function Discussion({
           actorId={actorId}
           scope={scope}
           path={path}
+          anchor={anchor}
+          onAnchoredPost={onAnchoredPost}
           refresh={refresh}
           latest={latest}
           items={snapshot.data.pages.flatMap((page) => page.items)}
@@ -141,6 +157,8 @@ function DiscussionContent({
   actorId,
   scope,
   path,
+  anchor,
+  onAnchoredPost,
   refresh,
   latest,
   items,
@@ -151,6 +169,8 @@ function DiscussionContent({
   actorId: string;
   scope: CollaborationScope;
   path: string;
+  anchor?: PassageAnchor;
+  onAnchoredPost?: () => void;
   refresh: (accessChanged?: boolean) => void;
   latest: CommentSnapshot;
   items: Comment[];
@@ -256,6 +276,7 @@ function DiscussionContent({
           <Thread
             key={root.mutationId + root.author.id}
             root={root}
+            scope={scope}
             replies={replies.get(root.id) ?? []}
             pending={inFlight.filter(({ parentId }) => parentId === root.id)}
             actorId={actorId}
@@ -273,12 +294,17 @@ function DiscussionContent({
       </ul>
       {latest.canPost && (
         <Composer
-          label="New comment"
+          label={anchor ? "Comment on selected passage" : "New comment"}
           submitLabel="Post comment"
           people={latest.people}
-          onSubmit={(draft, mutationId) =>
-            save({ ...draft, action: "post", parentId: null }, mutationId)
-          }
+          intent={anchor ? JSON.stringify(anchor) : ""}
+          onSubmit={async (draft, mutationId) => {
+            await save(
+              { ...draft, action: "post", parentId: null, anchor },
+              mutationId,
+            );
+            if (anchor) onAnchoredPost?.();
+          }}
         />
       )}
     </>
@@ -287,6 +313,7 @@ function DiscussionContent({
 
 function Thread({
   root,
+  scope,
   replies,
   pending,
   actorId,
@@ -294,6 +321,7 @@ function Thread({
   save,
 }: {
   root: Comment;
+  scope: CollaborationScope;
   replies: Comment[];
   pending: Post[];
   actorId: string;
@@ -331,6 +359,7 @@ function Thread({
     <li className="discussion-thread">
       <CommentEntry
         comment={root}
+        scope={scope}
         edit={latest.canPost && root.author.id === actorId}
         people={latest.people}
         save={save}
@@ -344,6 +373,7 @@ function Thread({
             <li key={reply.mutationId + reply.author.id}>
               <CommentEntry
                 comment={reply}
+                scope={scope}
                 edit={latest.canPost && reply.author.id === actorId}
                 people={latest.people}
                 save={save}
@@ -411,11 +441,13 @@ function PendingComment({ post }: { post: Post }) {
 
 function CommentEntry({
   comment,
+  scope,
   edit,
   people,
   save,
 }: {
   comment: Comment;
+  scope: CollaborationScope;
   edit: boolean;
   people: Comment["mentions"];
   save: Save;
@@ -432,7 +464,28 @@ function CommentEntry({
           {comment.editedAt && " · Edited"}
         </span>
       </header>
+      {comment.anchor && scope.subject.kind === "document" && (
+        <Link
+          to={citationPath(scope.workspaceId, {
+            kind: "document",
+            projectId: scope.projectId,
+            id: scope.subject.id,
+            anchor: comment.anchor,
+          })}
+        >
+          Passage from revision {comment.anchor.revision}
+        </Link>
+      )}
       <p className="discussion-body">{comment.body}</p>
+      <Link
+        to={citationPath(scope.workspaceId, {
+          kind: "comment",
+          projectId: scope.projectId,
+          id: comment.id,
+        })}
+      >
+        Comment citation
+      </Link>
       {comment.mentions.length > 0 && (
         <p className="discussion-mentions">
           Mentions {comment.mentions.map(({ name }) => `@${name}`).join(", ")}
@@ -493,6 +546,7 @@ function Composer({
   onCancel,
   initial,
   disabled,
+  intent,
 }: {
   label: string;
   submitLabel: string;
@@ -501,6 +555,7 @@ function Composer({
   onCancel?: () => void;
   initial?: Draft;
   disabled?: boolean;
+  intent?: string;
 }) {
   const [draft, setDraft] = useState<Draft>(
     initial ?? { body: "", mentionIds: [] },
@@ -515,7 +570,7 @@ function Composer({
     setBusy(true);
     setError("");
     setNotice("");
-    const signature = JSON.stringify(draft);
+    const signature = JSON.stringify([draft, intent]);
     if (retry.current?.signature !== signature)
       retry.current = { signature, mutationId: crypto.randomUUID() };
     try {

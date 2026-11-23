@@ -6,6 +6,7 @@ import { z } from "zod";
 import { collaborationStore } from "./collaboration.js";
 import { forecastStore } from "./forecast.js";
 import { identityStore } from "./identity.js";
+import { knowledgeStore } from "./knowledge.js";
 import { planningStore } from "./planning.js";
 import { foundationJobEffects, foundationJobs } from "./schema.js";
 
@@ -50,13 +51,14 @@ export function connectDatabase(url: string) {
 
   return {
     collaboration: collaborationStore(client),
+    knowledge: knowledgeStore(client),
     identity: identityStore(client),
     planning: planningStore(client),
     forecast: forecastStore(client),
     async checkReady() {
       await db.execute(sql`
         SELECT 1 FROM ${foundationJobs}, ${foundationJobEffects}, public.workspaces, public.work_items,
-          public.dependency_edges, public.scenarios LIMIT 0
+          public.dependency_edges, public.scenarios, public.documents LIMIT 0
       `);
     },
     async createJob(id: string) {

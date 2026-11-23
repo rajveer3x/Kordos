@@ -31,6 +31,7 @@ import "./styles.css";
 import "./features/workspace/workspace.css";
 
 const ProjectGraph = lazy(() => import("./features/planning/project-graph"));
+const ProjectKnowledge = lazy(() => import("./features/knowledge/routes"));
 
 function WorkspacePage({
   destination,
@@ -133,6 +134,21 @@ export function WorkspaceRoutes({
                 }
               />
               <Route path="settings" element={<ProjectSettings />} />
+              <Route
+                path="documents/*"
+                element={
+                  <Suspense
+                    fallback={
+                      <AsyncState
+                        kind="loading"
+                        message="Loading project knowledge…"
+                      />
+                    }
+                  >
+                    <ProjectKnowledge />
+                  </Suspense>
+                }
+              />
               <Route path="work" element={<WorkViews />}>
                 <Route path="new" element={<WorkInspector create />} />
                 <Route path=":workId" element={<WorkInspector />} />
@@ -143,7 +159,8 @@ export function WorkspaceRoutes({
             .filter(
               ({ id }) =>
                 id !== "overview" &&
-                (!live || (id !== "work" && id !== "graph")),
+                (!live ||
+                  (id !== "work" && id !== "graph" && id !== "documents")),
             )
             .map((destination) => (
               <Route key={destination.id} path={destination.id}>

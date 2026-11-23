@@ -1,8 +1,8 @@
 # Delivery tracker
 
-**Current state** — Features 01 through 06 are verified locally.
+**Current state** — Features 01 through 07 are verified locally.
 
-**Next ready feature** — [07 · Documents and decision register](feature-specs/07-documents-and-decisions.md). Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
+**Next ready feature** — [08 · Approval engine and audit history](feature-specs/08-approvals-and-audit.md). Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
 
 | ID | Feature prompt | Depends on | State | Evidence |
 |---|---|---|---|---|
@@ -12,7 +12,7 @@
 | 04 | [Projects and work items](feature-specs/04-projects-and-work.md) | 03 | Done | Board edits, private project isolation, archiving and attributed reopening passed. See [Feature 04 evidence](#feature-04-evidence). |
 | 05 | [Dependencies and forecasts](feature-specs/05-graph-and-forecasts.md) | 04 | Done | Forecast dates, slack, concurrent cycle rejection and private previews passed. See [Feature 05 evidence](#feature-05-evidence). |
 | 06 | [Comments and presence](feature-specs/06-realtime-collaboration.md) | 04 | Done | Reconnect deduplication, private room revocation and presence expiry passed. See [Feature 06 evidence](#feature-06-evidence). |
-| 07 | [Documents and decision register](feature-specs/07-documents-and-decisions.md) | 04, 06 | Pending | — |
+| 07 | [Documents and decision register](feature-specs/07-documents-and-decisions.md) | 04, 06 | Done | Historical citations, draft recovery, supersession and attachment authorization passed. See [Feature 07 evidence](#feature-07-evidence). |
 | 08 | [Approval engine and audit history](feature-specs/08-approvals-and-audit.md) | 04, 07 | Pending | — |
 | 09 | [Brief to approved project plan](feature-specs/09-brief-to-plan.md) | 05, 07, 08 | Pending | — |
 | 10 | [Risks from project activity](feature-specs/10-risk-from-activity.md) | 05, 06, 08, 09 | Pending | — |
@@ -159,4 +159,21 @@ Verified on 2026-11-23 with Node 26.5.0, pnpm 10.34.9, Chromium, a local OIDC is
 
 Viewers can read discussions, contributors can post, and thread authors and project leads can resolve or reopen threads. Archived discussions are read-only. The API wakes Socket.IO delivery on PostgreSQL change notifications and replays from the durable outbox. Presence expires after 15 seconds without a heartbeat. The shared subject contract is ready for documents and meetings, and Feature 12 covers inbox delivery for mentions.
 
-All local Feature 06 acceptance checks passed. Feature 07 is ready.
+All local Feature 06 acceptance checks passed.
+
+## Feature 07 evidence
+
+Verified on 2026-11-23 with Node 26.5.0, pnpm 10.34.9, Chromium, a local OIDC issuer and isolated PostgreSQL, Redis and S3-compatible storage.
+
+| Check | Result |
+|---|---|
+| `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm build`, `git diff --check` | Passed. All eight Vitest tests passed. The build emitted the existing Zod annotation warnings. |
+| `pnpm db:migrate` and `pnpm db:generate` | Fresh and repeated migrations passed. An isolated Feature 06 database retained its restricted project and existing comment under the runtime role. The local Compose database migrated with its project and comment counts intact. Drizzle reported no schema changes. |
+| `pnpm test:e2e --workers=3 --trace=on` and `pnpm test:e2e --project=knowledge --no-deps --trace=on` | All 14 Chromium tests passed. The focused [Feature 07 journey](../tests/e2e/documents-and-decisions.spec.ts) also checked document reflow at 1440, 1024, 390 and 320 CSS px. |
+| Document editing and citations | Formatting rendered safely, including literal HTML. A passage selected after an emoji resolved to the exact original quote after three later revisions. The anchored comment continued to link to revision 1. A stale save returned 409, preserved the draft and supported a merge. Restoring revision 1 created revision 4 with the current base and restore attribution. Archived documents remained readable at their stable links. |
+| Decision history and access | A contributor drafted a decision and a lead confirmed it. A superseding decision retained both links, the original conclusion and its effective period. A viewer received no private source IDs or excerpts. Removing source project membership hid both a document passage and a comment from an open decision, denied the old citation URL, and suppressed document rows under the runtime role. |
+| Attachment authorization and retries | Allowed downloads returned the original bytes as an attachment with no-store caching. Unsigned object storage access, an unauthorized viewer and a revoked member were denied. Two simultaneous uploads with the same mutation ID returned one attachment. Reusing that mutation ID with different bytes returned 409. |
+
+Document formatting supports headings, lists, emphasis, inline code and task links. Archived documents are read-only. Attachments are limited to 10 MB. The shared citation resolver supports document spans and comment IDs, and it checks each source project's current access before including it in a decision.
+
+All local Feature 07 acceptance checks passed. Feature 08 is ready.

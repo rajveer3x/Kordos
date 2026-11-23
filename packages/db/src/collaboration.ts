@@ -29,6 +29,7 @@ type CommandResult =
         | "unavailable"
         | "invalid_state"
         | "invalid_mention"
+        | "invalid_anchor"
         | "conflict"
         | "mutation_conflict";
     };

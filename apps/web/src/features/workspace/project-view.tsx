@@ -379,6 +379,16 @@ export function ProjectSection({
       <h2 id="project-section-title">
         {source ? source.title : destination.label}
       </h2>
+      {workspaceId && destination.id === "meetings" && (
+        <Link
+          to={workspacePath(
+            projectPath(project.id, "documents") + "/decisions",
+            workspaceId,
+          )}
+        >
+          Decision register
+        </Link>
+      )}
       {source ? (
         <SourcePassage source={source} />
       ) : sourceId ? (

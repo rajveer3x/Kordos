@@ -1,3 +1,4 @@
+import type { S3Client } from "@aws-sdk/client-s3";
 import cookie from "@fastify/cookie";
 import {
   acceptInvitationSchema,
@@ -13,6 +14,7 @@ import { z } from "zod";
 import { attachCollaboration } from "../collaboration/live.js";
 import { registerCollaboration } from "../collaboration/routes.js";
 import type { Config } from "../config.js";
+import { registerKnowledge } from "../knowledge/routes.js";
 import { registerForecast } from "../planning/forecast-routes.js";
 import { registerPlanning } from "../planning/routes.js";
 import { IdentityError, parse, unavailable } from "./http.js";
@@ -27,8 +29,9 @@ export function registerIdentity(
   redis: Redis,
   stores: Pick<
     ReturnType<typeof connectDatabase>,
-    "identity" | "planning" | "forecast" | "collaboration"
+    "identity" | "planning" | "forecast" | "collaboration" | "knowledge"
   >,
+  storage: S3Client,
 ) {
   const session = createSessionService(config, redis);
   const db = stores.identity;
@@ -100,6 +103,13 @@ export function registerIdentity(
       registerPlanning(api, stores.planning, requireActor);
       registerForecast(api, stores.forecast, requireActor);
       registerCollaboration(api, stores.collaboration, requireActor);
+      registerKnowledge(
+        api,
+        stores.knowledge,
+        requireActor,
+        storage,
+        config.STORAGE_BUCKET,
+      );
 
       api.post("/auth/login", async (request, reply) => {
         if (!config.auth) throw unavailable();

@@ -110,6 +110,12 @@ export function registerCollaboration(
           "invalid_input",
           "Choose people who can access this discussion.",
         );
+      case "invalid_anchor":
+        throw new IdentityError(
+          400,
+          "invalid_input",
+          "Select a passage from a saved document revision.",
+        );
       case "invalid_state":
         throw new IdentityError(
           409,

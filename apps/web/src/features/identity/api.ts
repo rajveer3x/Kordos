@@ -16,17 +16,21 @@ export async function request<T = void>(
   options: {
     method?: "GET" | "POST" | "PATCH" | "DELETE";
     body?: unknown;
+    binary?: Blob;
     schema?: ZodType<T>;
     signal?: AbortSignal;
   } = {},
 ) {
   const response = await fetch(`/api${path}`, {
     method: options.method ?? "GET",
-    headers:
-      options.body === undefined
+    headers: options.binary
+      ? { "Content-Type": "application/octet-stream" }
+      : options.body === undefined
         ? undefined
         : { "Content-Type": "application/json" },
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    body:
+      options.binary ??
+      (options.body === undefined ? undefined : JSON.stringify(options.body)),
     signal: options.signal,
     cache: "no-store",
   });

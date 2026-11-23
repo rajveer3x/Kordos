@@ -21,6 +21,7 @@ export default defineConfig({
         "**/projects-and-work.spec.ts",
         "**/dependencies-and-forecasts.spec.ts",
         "**/realtime-collaboration.spec.ts",
+        "**/documents-and-decisions.spec.ts",
       ],
     },
     {
@@ -44,6 +45,12 @@ export default defineConfig({
       name: "collaboration",
       testMatch: "**/realtime-collaboration.spec.ts",
       dependencies: ["forecast"],
+      use: { actionTimeout: 10_000 },
+    },
+    {
+      name: "knowledge",
+      testMatch: "**/documents-and-decisions.spec.ts",
+      dependencies: ["collaboration"],
       use: { actionTimeout: 10_000 },
     },
   ],

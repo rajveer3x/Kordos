@@ -36,6 +36,13 @@
       "when": 1795425345171,
       "tag": "0004_comments_and_presence",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795426257714,
+      "tag": "0005_documents_and_decisions",
+      "breakpoints": true
     }
   ]
 }

@@ -14,6 +14,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
@@ -442,6 +443,7 @@ export const comments = pgTable(
     mutationId: uuid("mutation_id").notNull(),
     body: text().notNull(),
     mentionIds: uuid("mention_ids").array().notNull(),
+    anchor: jsonb("anchor"),
     version: integer().notNull().default(1),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -526,5 +528,172 @@ export const comments = pgTable(
       table.createdAt,
       table.id,
     ),
+  ],
+);
+
+export const documents = pgTable(
+  "documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    revision: integer("revision").notNull().default(1),
+    version: integer("version").notNull().default(1),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+  },
+  (t) => [
+    unique("documents_scope_unique").on(t.workspaceId, t.projectId, t.id),
+    foreignKey({
+      name: "documents_project_fk",
+      columns: [t.workspaceId, t.projectId],
+      foreignColumns: [projects.workspaceId, projects.id],
+    }),
+  ],
+);
+
+export const documentVersions = pgTable(
+  "document_versions",
+  {
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    documentId: uuid("document_id").notNull(),
+    revision: integer("revision").notNull(),
+    title: text("title").notNull(),
+    content: text("content").notNull(),
+    authorId: uuid("author_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    baseRevision: integer("base_revision"),
+    restoredFrom: integer("restored_from"),
+  },
+  (t) => [
+    primaryKey({
+      columns: [t.workspaceId, t.projectId, t.documentId, t.revision],
+    }),
+    foreignKey({
+      name: "document_versions_document_fk",
+      columns: [t.workspaceId, t.projectId, t.documentId],
+      foreignColumns: [
+        documents.workspaceId,
+        documents.projectId,
+        documents.id,
+      ],
+    }),
+    foreignKey({
+      name: "document_versions_author_fk",
+      columns: [t.workspaceId, t.authorId],
+      foreignColumns: [memberships.workspaceId, memberships.userId],
+    }),
+    foreignKey({
+      name: "document_versions_base_fk",
+      columns: [t.workspaceId, t.projectId, t.documentId, t.baseRevision],
+      foreignColumns: [t.workspaceId, t.projectId, t.documentId, t.revision],
+    }),
+    foreignKey({
+      name: "document_versions_restore_fk",
+      columns: [t.workspaceId, t.projectId, t.documentId, t.restoredFrom],
+      foreignColumns: [t.workspaceId, t.projectId, t.documentId, t.revision],
+    }),
+  ],
+);
+
+export const documentAttachments = pgTable(
+  "document_attachments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    documentId: uuid("document_id").notNull(),
+    actorId: uuid("actor_id").notNull(),
+    mutationId: uuid("mutation_id").notNull(),
+    name: text("name").notNull(),
+    size: integer("size").notNull(),
+    digest: text("digest").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    readyAt: timestamp("ready_at", { withTimezone: true }),
+  },
+  (t) => [
+    unique("document_attachments_mutation_unique").on(
+      t.workspaceId,
+      t.actorId,
+      t.mutationId,
+    ),
+    index("document_attachments_document_idx").on(
+      t.workspaceId,
+      t.projectId,
+      t.documentId,
+    ),
+    foreignKey({
+      name: "document_attachments_document_fk",
+      columns: [t.workspaceId, t.projectId, t.documentId],
+      foreignColumns: [
+        documents.workspaceId,
+        documents.projectId,
+        documents.id,
+      ],
+    }),
+    foreignKey({
+      name: "document_attachments_actor_fk",
+      columns: [t.workspaceId, t.actorId],
+      foreignColumns: [memberships.workspaceId, memberships.userId],
+    }),
+  ],
+);
+
+export const decisions = pgTable(
+  "decisions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    question: text("question").notNull(),
+    conclusion: text("conclusion").notNull(),
+    accountableId: uuid("accountable_id").notNull(),
+    effectiveDate: date("effective_date").notNull(),
+    evidence: jsonb("evidence").notNull(),
+    supersedesId: uuid("supersedes_id"),
+    authorId: uuid("author_id").notNull(),
+    confirmedBy: uuid("confirmed_by"),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    version: integer("version").notNull().default(1),
+  },
+  (t) => [
+    unique("decisions_scope_unique").on(t.workspaceId, t.projectId, t.id),
+    index("decisions_project_date_idx").on(
+      t.workspaceId,
+      t.projectId,
+      t.effectiveDate,
+    ),
+    uniqueIndex("decisions_one_successor_idx")
+      .on(t.workspaceId, t.projectId, t.supersedesId)
+      .where(sql.raw("confirmed_at IS NOT NULL AND supersedes_id IS NOT NULL")),
+    foreignKey({
+      name: "decisions_project_fk",
+      columns: [t.workspaceId, t.projectId],
+      foreignColumns: [projects.workspaceId, projects.id],
+    }),
+    foreignKey({
+      name: "decisions_accountable_fk",
+      columns: [t.workspaceId, t.accountableId],
+      foreignColumns: [memberships.workspaceId, memberships.userId],
+    }),
+    foreignKey({
+      name: "decisions_author_fk",
+      columns: [t.workspaceId, t.authorId],
+      foreignColumns: [memberships.workspaceId, memberships.userId],
+    }),
+    foreignKey({
+      name: "decisions_confirmer_fk",
+      columns: [t.workspaceId, t.confirmedBy],
+      foreignColumns: [memberships.workspaceId, memberships.userId],
+    }),
+    foreignKey({
+      name: "decisions_supersedes_fk",
+      columns: [t.workspaceId, t.projectId, t.supersedesId],
+      foreignColumns: [t.workspaceId, t.projectId, t.id],
+    }),
   ],
 );
