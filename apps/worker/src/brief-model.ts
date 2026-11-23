@@ -6,7 +6,7 @@ import {
   type BriefPlan,
   type ModelBrief,
 } from "@kordos/contracts";
-import { businessDate, dependencyPath } from "@kordos/domain";
+import { dependencyPath, sourceDate } from "@kordos/domain";
 import { z } from "zod";
 
 const completion = z.object({
@@ -22,15 +22,6 @@ const completion = z.object({
     )
     .length(1),
 });
-const week = [
-  "sunday",
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-];
 const outputSchema = z.toJSONSchema(modelBriefSchema, {
   // Conditions such as ISO date formats and maximum spans are enforced locally.
   override: ({ jsonSchema }) => {
@@ -89,23 +80,12 @@ function resolveDeadline(
   if (!deadline || !hasPhrase(quote, deadline.value)) return null;
   if (deadline.kind === "absolute") return deadline.value;
 
-  const date = new Date(
-    businessDate(source.timeZone, new Date(source.capturedAt)) + "T00:00:00Z",
-  );
-  const current = date.getUTCDay();
-  const phrase = deadline.value;
-  let offset = 0;
-  if (phrase === "tomorrow") offset = 1;
-  else if (phrase.startsWith("next ")) {
-    offset =
-      7 + ((week.indexOf(phrase.slice(5)) + 6) % 7) - ((current + 6) % 7);
-  } else if (phrase !== "today") {
-    // “Next Friday” has a different meaning from the bare weekday.
-    if (hasPhrase(quote, "next " + phrase)) return null;
-    offset = (week.indexOf(phrase) - current + 7) % 7;
-  }
-  date.setUTCDate(date.getUTCDate() + offset);
-  return date.toISOString().slice(0, 10);
+  if (
+    !deadline.value.startsWith("next ") &&
+    hasPhrase(quote, "next " + deadline.value)
+  )
+    return null;
+  return sourceDate(deadline.value, source.timeZone, source.capturedAt);
 }
 
 export function groundBrief(

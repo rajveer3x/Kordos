@@ -65,6 +65,8 @@ const issueMessage: Record<
     "Check the proposed values and current owner eligibility before submitting a new revision.",
   ambiguous_effect:
     "An event already exists for this execution. Verify the work item and its audit history before attempting another change.",
+  risk_stale:
+    "The delay report or schedule changed before execution. Refresh the associated risk to submit a new replan.",
   worker_failed:
     "The system could not apply this change. Review the latest work version before submitting a new revision.",
 };
@@ -381,6 +383,21 @@ function ReviewDetails({
             </div>
           )}
         </dl>
+        {proposal.riskContext && (
+          <div className="planning-actions">
+            {proposal.riskContext.stale && (
+              <p className="planning-conflict">
+                The delay report or schedule changed. Refresh the risk before
+                requesting a new approval.
+              </p>
+            )}
+            <Link to={`${projectBase}/risks/${proposal.riskContext.id}`}>
+              {proposal.riskContext.stale
+                ? "Review latest risk"
+                : "Open schedule risk"}
+            </Link>
+          </div>
+        )}
         {proposal.reason && <p className="review-reason">{proposal.reason}</p>}
         {targetChanged && (
           <p className="planning-conflict">

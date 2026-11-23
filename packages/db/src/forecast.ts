@@ -22,7 +22,7 @@ type DependencyResult =
   | { result: "cycle"; path: { id: string; title: string }[] }
   | { result: "unavailable" | "invalid_state" | "mutation_conflict" };
 
-async function readSchedule(
+export async function readSchedule(
   sql: TransactionSql,
   workspace: string,
   project: string,
@@ -38,7 +38,7 @@ async function readSchedule(
     )
     SELECT p.graph_version AS "graphVersion", p.archived_at IS NOT NULL AS archived,
       (extract(epoch FROM statement_timestamp()) * 1000)::float8 AS "readAtMillis",
-      encode(sha256(convert_to(jsonb_build_array(p.id, p.version, p.graph_version, work.revisions)::text, 'UTF8')), 'hex')
+      kordos_planning.schedule_fingerprint(p.id, p.version, p.graph_version, work.revisions)
         AS "inputRevision",
       jsonb_build_object(
         'timeZone', p.time_zone, 'workdays', p.workdays, 'nonworkingDates', p.nonworking_dates

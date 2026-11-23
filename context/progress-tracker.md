@@ -1,8 +1,8 @@
 # Delivery tracker
 
-**Current state** — Features 01 through 09 are verified locally.
+**Current state** — Features 01 through 10 are verified locally.
 
-**Next ready feature** — [10 · Risks from project activity](feature-specs/10-risk-from-activity.md). [Feature 11](feature-specs/11-meetings-and-actions.md) and [Feature 13](feature-specs/13-connector-runtime.md) also have their prerequisites met. Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
+**Next ready feature** — [11 · Meetings and accountable follow-up](feature-specs/11-meetings-and-actions.md). [Feature 12](feature-specs/12-inbox-and-deadlines.md) and [Feature 13](feature-specs/13-connector-runtime.md) also have their prerequisites met. Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
 
 | ID | Feature prompt | Depends on | State | Evidence |
 |---|---|---|---|---|
@@ -15,7 +15,7 @@
 | 07 | [Documents and decision register](feature-specs/07-documents-and-decisions.md) | 04, 06 | Done | Historical citations, draft recovery, supersession and attachment authorization passed. See [Feature 07 evidence](#feature-07-evidence). |
 | 08 | [Approval engine and audit history](feature-specs/08-approvals-and-audit.md) | 04, 07 | Done | Concurrent approval, execution checks and audit tracing passed. See [Feature 08 evidence](#feature-08-evidence). |
 | 09 | [Brief to approved project plan](feature-specs/09-brief-to-plan.md) | 05, 07, 08 | Done | Sourced candidates, cycle rejection, atomic approval and timeout recovery passed. See [Feature 09 evidence](#feature-09-evidence). |
-| 10 | [Risks from project activity](feature-specs/10-risk-from-activity.md) | 05, 06, 08, 09 | Pending | — |
+| 10 | [Risks from project activity](feature-specs/10-risk-from-activity.md) | 05, 06, 08, 09 | Done | Forecast impact, author clarification, stale replan protection and approved commitment changes passed. See [Feature 10 evidence](#feature-10-evidence). |
 | 11 | [Meetings and accountable follow-up](feature-specs/11-meetings-and-actions.md) | 06, 07, 08, 09 | Pending | — |
 | 12 | [Inbox and deadline delivery](feature-specs/12-inbox-and-deadlines.md) | 06, 08, 10 | Pending | — |
 | 13 | [Connector management and ingestion](feature-specs/13-connector-runtime.md) | 03, 04, 07 | Pending | — |
@@ -211,3 +211,20 @@ Verified on 2026-11-23 with Node 26.5.0, pnpm 10.34.9, Chromium, loopback OIDC a
 A brief can use pasted text or an existing project document revision. Extraction uses the source revision's timestamp and the project timezone recorded at intake. Each source revision supports one brief job and up to one plan proposal. Extraction supports three attempts and a manual draft from the saved source.
 
 All local Feature 09 acceptance checks passed. Live OpenAI verification remains a staging check and requires the [worker configuration](../README.md#brief-extraction). Feature 10 is next.
+
+
+## Feature 10 evidence
+
+Verified on 2026-11-23 with Node 26.5.0, pnpm 10.34.9, Chromium, loopback OIDC and model fixtures, and isolated PostgreSQL, Redis and S3-compatible storage.
+
+| Check | Result |
+|---|---|
+| `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm build`, `git diff --check` | Passed, including 14 Vitest tests. The build reported the existing Zod annotation and Vite entry-chunk size warnings. |
+| `pnpm db:migrate` twice and `pnpm db:generate` | Fresh and repeat migrations passed. Drizzle found no schema changes. An isolated upgrade from Feature 09 preserved a source brief and backfilled the latest revision of a pre-existing project comment. Replay left one finding under the runtime role. |
+| `pnpm test:e2e --workers=3 --trace=on` and `pnpm test:e2e --project=risks --no-deps --trace=on` | All 17 Chromium tests passed. The focused [Feature 10 journey](../tests/e2e/project-activity-risks.spec.ts) passed after the final UI edits. Reflow passed at 1440, 1024, 390 and 320 CSS px. Desktop and mobile trace frames showed the evidence, comparison, affected path and review actions. |
+| Forecast and acknowledgement | A Friday API handoff identified QA and Wednesday launch. Monday remained the commitment during review and changed to Wednesday after approval. The lead's acknowledgement note and the service-attributed severity event appeared in the history. An unrelated copy delay produced no active milestone risk, and a parallel branch within its slack left the milestone forecast unchanged in Vitest. |
+| Clarification, supersession and permissions | Two identical Auth titles prompted for clarification. Only the comment author could select a task. Editing the report preserved the earlier quote and finding, removed the outdated proposal from the pending queue and rejected approval with 409. A second edit after approval stopped queued execution and preserved the Monday commitment. A graph input change required a refreshed finding before a new proposal. An outsider received 404, and the runtime role could neither read the risk table directly nor bypass the guarded approval executor. |
+
+Risk extraction uses explicit delay language, task context and supported absolute or relative date phrases. Dates resolve in the project timezone from the comment revision's timestamp. A replan proposes a specific milestone commitment through the existing approval engine.
+
+All local Feature 10 acceptance checks passed. Feature 11 is next.

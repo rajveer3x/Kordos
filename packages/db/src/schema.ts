@@ -453,6 +453,11 @@ export const comments = pgTable(
     resolvedBy: uuid("resolved_by"),
   },
   (table) => [
+    unique("comments_project_id_unique").on(
+      table.workspaceId,
+      table.projectId,
+      table.id,
+    ),
     unique("comments_subject_id_unique").on(
       table.workspaceId,
       table.projectId,
@@ -988,5 +993,107 @@ export const executions = pgTable(
     index("executions_pending_idx")
       .on(table.approvedAt, table.id)
       .where(sql`${table.status} IN ('approved', 'applying')`),
+  ],
+);
+
+export const riskCommentJobs = pgTable(
+  "risk_comment_jobs",
+  {
+    id: uuid()
+      .primaryKey()
+      .references(() => outbox.id),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    processedAt: timestamp("processed_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("risk_comment_jobs_pending_idx")
+      .on(t.createdAt, t.id)
+      .where(sql`${t.processedAt} IS NULL`),
+  ],
+);
+
+export const riskFindings = pgTable(
+  "risk_findings",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    commentId: uuid("comment_id").notNull(),
+    sourceVersion: integer("source_version").notNull(),
+    sourceAt: timestamp("source_at", { withTimezone: true }).notNull(),
+    inputRevision: text("input_revision").notNull(),
+    asOf: date("as_of").notNull(),
+    calendar: jsonb().notNull(),
+    assessment: jsonb().notNull(),
+    status: text().notNull().default("open"),
+    version: integer().notNull().default(1),
+    previousId: uuid("previous_id"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    unique("risk_findings_scope_unique").on(t.workspaceId, t.projectId, t.id),
+    foreignKey({
+      name: "risk_findings_comment_fk",
+      columns: [t.workspaceId, t.projectId, t.commentId],
+      foreignColumns: [comments.workspaceId, comments.projectId, comments.id],
+    }),
+    foreignKey({
+      name: "risk_findings_previous_fk",
+      columns: [t.workspaceId, t.projectId, t.previousId],
+      foreignColumns: [t.workspaceId, t.projectId, t.id],
+    }),
+    unique("risk_findings_successor_unique").on(t.previousId),
+    uniqueIndex("risk_findings_current_comment_idx")
+      .on(t.workspaceId, t.projectId, t.commentId)
+      .where(sql`${t.status} <> 'superseded'`),
+    index("risk_findings_project_date_idx").on(
+      t.workspaceId,
+      t.projectId,
+      t.createdAt,
+      t.id,
+    ),
+    check(
+      "risk_findings_status",
+      sql`${t.status} IN ('open', 'acknowledged', 'resolved', 'superseded')`,
+    ),
+  ],
+);
+
+export const riskReplans = pgTable(
+  "risk_replans",
+  {
+    proposalId: uuid("proposal_id").primaryKey(),
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    findingId: uuid("finding_id").notNull(),
+  },
+  (t) => [
+    foreignKey({
+      name: "risk_replans_proposal_fk",
+      columns: [t.workspaceId, t.projectId, t.proposalId],
+      foreignColumns: [
+        proposals.workspaceId,
+        proposals.projectId,
+        proposals.id,
+      ],
+    }),
+    foreignKey({
+      name: "risk_replans_finding_fk",
+      columns: [t.workspaceId, t.projectId, t.findingId],
+      foreignColumns: [
+        riskFindings.workspaceId,
+        riskFindings.projectId,
+        riskFindings.id,
+      ],
+    }),
+    index("risk_replans_finding_idx").on(
+      t.workspaceId,
+      t.projectId,
+      t.findingId,
+    ),
   ],
 );

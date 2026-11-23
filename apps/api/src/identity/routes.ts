@@ -18,6 +18,7 @@ import { registerKnowledge } from "../knowledge/routes.js";
 import { registerForecast } from "../planning/forecast-routes.js";
 import { registerPlanning } from "../planning/routes.js";
 import { registerBriefs } from "../briefs/routes.js";
+import { registerRisks } from "../risks/routes.js";
 import { registerReviews } from "../reviews/routes.js";
 import { IdentityError, parse, unavailable } from "./http.js";
 import { createSessionService, digest, opaqueToken } from "./session.js";
@@ -37,6 +38,7 @@ export function registerIdentity(
     | "collaboration"
     | "knowledge"
     | "reviews"
+    | "risks"
     | "briefs"
   >,
   storage: S3Client,
@@ -110,6 +112,7 @@ export function registerIdentity(
 
       registerPlanning(api, stores.planning, requireActor);
       registerReviews(api, stores, requireActor);
+      registerRisks(api, stores.risks, requireActor);
       registerBriefs(api, stores.briefs, requireActor);
       registerForecast(api, stores.forecast, requireActor);
       registerCollaboration(api, stores.collaboration, requireActor);

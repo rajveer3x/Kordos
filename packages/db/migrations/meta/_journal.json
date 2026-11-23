@@ -57,6 +57,13 @@
       "when": 1795442806161,
       "tag": "0007_brief_to_plan",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795443615349,
+      "tag": "0008_project_activity_risks",
+      "breakpoints": true
     }
   ]
 }

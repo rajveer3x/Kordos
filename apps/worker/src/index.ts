@@ -10,6 +10,7 @@ import { Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { z } from "zod";
 import { startBriefs } from "./briefs.js";
+import { startRisks } from "./risks.js";
 import { startApprovals } from "./approvals.js";
 
 const config = z
@@ -117,6 +118,7 @@ const briefs = settings.BRIEF_WORKER_DATABASE_URL
       reportRedisError,
     )
   : undefined;
+const risks = startRisks(db.risks, producer, consumer, reportRedisError);
 const shutdown = new AbortController();
 
 async function dispatchPendingJobs(signal: AbortSignal) {
@@ -136,6 +138,7 @@ async function dispatchPendingJobs(signal: AbortSignal) {
           );
         }
         await approvals.dispatch(signal);
+        await risks.dispatch(signal);
         await briefs?.dispatch(signal);
         dispatchFailed = false;
       }
@@ -165,6 +168,7 @@ async function stop() {
     await Promise.all([
       worker.close(consumer.status !== "ready"),
       approvals.close(),
+      risks.close(),
       briefs?.close(),
     ]);
     await queue.close();

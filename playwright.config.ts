@@ -24,6 +24,7 @@ export default defineConfig({
         "**/documents-and-decisions.spec.ts",
         "**/approvals-and-audit.spec.ts",
         "**/brief-to-plan.spec.ts",
+        "**/project-activity-risks.spec.ts",
       ],
     },
     {
@@ -65,6 +66,12 @@ export default defineConfig({
       name: "briefs",
       testMatch: "**/brief-to-plan.spec.ts",
       dependencies: ["reviews"],
+      use: { actionTimeout: 10_000 },
+    },
+    {
+      name: "risks",
+      testMatch: "**/project-activity-risks.spec.ts",
+      dependencies: ["briefs"],
       use: { actionTimeout: 10_000 },
     },
   ],

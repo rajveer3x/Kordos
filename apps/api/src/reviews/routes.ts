@@ -86,6 +86,12 @@ function saved(value: { result: string; cycle?: string[] }, current?: unknown) {
         "The work item changed. Open the latest work version and revise the proposal.",
         current,
       );
+    case "risk_stale":
+      throw new IdentityError(
+        409,
+        "conflict",
+        "The delay report or schedule changed. Open the latest risk and refresh its forecast before requesting a new approval.",
+      );
     case "evidence_changed":
       throw new IdentityError(
         409,

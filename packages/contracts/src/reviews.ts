@@ -55,6 +55,7 @@ export const executionIssueSchema = z.enum([
   "target_unavailable",
   "invalid_change",
   "worker_failed",
+  "risk_stale",
   "ambiguous_effect",
 ]);
 export const executionSchema = z.object({
@@ -96,6 +97,7 @@ const detail = summary.extend({
   owners: z.array(personSchema),
   evidence: z.array(resolvedCitationSchema),
   evidenceRestricted: z.boolean(),
+  riskContext: z.object({ id: idSchema, stale: z.boolean() }).optional(),
   receipt: executionSchema.nullable(),
   canEdit: z.boolean(),
   canSubmit: z.boolean(),

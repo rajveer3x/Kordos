@@ -1,7 +1,7 @@
 import { projectSchema } from "@kordos/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Plus } from "lucide-react";
-import { useRef, useState } from "react";
+import { lazy, Suspense, useRef, useState } from "react";
 import {
   Link,
   Outlet,
@@ -38,6 +38,12 @@ import {
 import { useForecast } from "./forecast-client";
 import { ProjectEditor } from "./project-settings";
 import "./planning.css";
+
+const RiskOverview = lazy(() =>
+  import("../risks/risks").then(({ RiskOverview }) => ({
+    default: RiskOverview,
+  })),
+);
 
 export function ProjectDirectory({
   projects,
@@ -277,6 +283,13 @@ export function PlanningOverview() {
           </Link>
         </div>
       </section>
+      <Suspense
+        fallback={
+          <AsyncState kind="loading" message="Loading schedule risks…" />
+        }
+      >
+        <RiskOverview />
+      </Suspense>
       <DiscussionPanel
         projectId={project.id}
         subject={{ kind: "project", id: project.id }}

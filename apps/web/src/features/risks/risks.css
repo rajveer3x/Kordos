@@ -1,0 +1,39 @@
+.risk-detail,
+.risk-section,
+.risk-milestone {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.risk-section,
+.risk-milestone {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.risk-milestone {
+  padding: var(--space-3);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+}
+
+.risk-candidates,
+.risk-path {
+  padding-inline-start: var(--space-6);
+}
+
+.risk-list {
+  display: grid;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.risk-list > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding-block: var(--space-3);
+  border-block-start: 1px solid var(--hairline);
+}

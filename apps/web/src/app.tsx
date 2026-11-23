@@ -32,6 +32,16 @@ import "./features/workspace/workspace.css";
 
 const ProjectGraph = lazy(() => import("./features/planning/project-graph"));
 const ProjectKnowledge = lazy(() => import("./features/knowledge/routes"));
+const RiskHistory = lazy(() =>
+  import("./features/risks/risks").then(({ RiskHistory }) => ({
+    default: RiskHistory,
+  })),
+);
+const RiskPage = lazy(() =>
+  import("./features/risks/risks").then(({ RiskPage }) => ({
+    default: RiskPage,
+  })),
+);
 const BriefsPage = lazy(() =>
   import("./features/briefs/briefs").then(({ BriefsPage }) => ({
     default: BriefsPage,
@@ -202,6 +212,22 @@ export function WorkspaceRoutes({
                 element={
                   <LazyPage>
                     <BriefJobPage />
+                  </LazyPage>
+                }
+              />
+              <Route
+                path="risks"
+                element={
+                  <LazyPage>
+                    <RiskHistory />
+                  </LazyPage>
+                }
+              />
+              <Route
+                path="risks/:riskId"
+                element={
+                  <LazyPage>
+                    <RiskPage />
                   </LazyPage>
                 }
               />
