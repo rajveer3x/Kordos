@@ -26,6 +26,7 @@ export default defineConfig({
         "**/brief-to-plan.spec.ts",
         "**/project-activity-risks.spec.ts",
         "**/meetings-and-actions.spec.ts",
+        "**/inbox-and-deadlines.spec.ts",
       ],
     },
     {
@@ -81,6 +82,12 @@ export default defineConfig({
       dependencies: ["risks"],
       use: { actionTimeout: 10_000 },
     },
+    {
+      name: "inbox",
+      testMatch: "**/inbox-and-deadlines.spec.ts",
+      dependencies: ["meetings"],
+      use: { actionTimeout: 10_000 },
+    },
   ],
   webServer: {
     command: "pnpm dev",
@@ -92,6 +99,9 @@ export default defineConfig({
       OPENAI_BASE_URL: `http://127.0.0.1:${process.env.TEST_BRIEF_MODEL_PORT ?? 4429}/v1/`,
       OPENAI_API_KEY: "test-brief-key",
       OPENAI_BRIEF_MODEL: "brief-fixture",
+      INBOX_EMAIL_URL: `http://127.0.0.1:${process.env.TEST_INBOX_EMAIL_PORT ?? 4492}/emails`,
+      INBOX_EMAIL_KEY: "local-sink",
+      INBOX_EMAIL_FROM: "kordos@example.test",
       BRIEF_MODEL_TIMEOUT_MS: "700",
       MEETING_TRANSCRIPTION_TIMEOUT_MS: "800",
     },

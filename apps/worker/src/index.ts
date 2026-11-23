@@ -11,6 +11,7 @@ import { Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { z } from "zod";
 import { startBriefs } from "./briefs.js";
+import { startInbox } from "./inbox.js";
 import { startMeetings } from "./meetings.js";
 import { startRisks } from "./risks.js";
 import { startApprovals } from "./approvals.js";
@@ -45,6 +46,11 @@ const config = z
       .min(50)
       .max(30000)
       .default(12000),
+    INBOX_EMAIL_URL: z.url({ protocol: /^https?$/ }).optional(),
+    INBOX_EMAIL_KEY: z.string().min(1).optional(),
+    INBOX_EMAIL_FROM: z.string().min(1).optional(),
+    APP_ORIGIN: z.url({ protocol: /^https?$/ }).optional(),
+    WEB_PORT: z.coerce.number().int().min(1).max(65535).default(4317),
     REDIS_URL: z.url({ protocol: /^rediss?$/ }),
   })
   .safeParse(process.env);
@@ -174,6 +180,21 @@ const meetings = settings.BRIEF_WORKER_DATABASE_URL
     )
   : undefined;
 const shutdown = new AbortController();
+const inbox = startInbox(
+  settings.BRIEF_WORKER_DATABASE_URL ?? settings.DATABASE_URL,
+  shutdown.signal,
+  settings.BRIEF_WORKER_DATABASE_URL &&
+    settings.INBOX_EMAIL_URL &&
+    settings.INBOX_EMAIL_KEY &&
+    settings.INBOX_EMAIL_FROM
+    ? {
+        endpoint: settings.INBOX_EMAIL_URL,
+        key: settings.INBOX_EMAIL_KEY,
+        from: settings.INBOX_EMAIL_FROM,
+        origin: settings.APP_ORIGIN ?? `http://127.0.0.1:${settings.WEB_PORT}`,
+      }
+    : undefined,
+);
 
 async function dispatchPendingJobs(signal: AbortSignal) {
   let dispatchFailed = false;
@@ -226,6 +247,7 @@ async function stop() {
       risks.close(),
       briefs?.close(),
       meetings?.close(),
+      inbox,
     ]);
     await queue.close();
     await db.close();

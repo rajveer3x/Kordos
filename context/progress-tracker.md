@@ -1,8 +1,8 @@
 # Delivery tracker
 
-**Current state** — Features 01 through 11 are verified locally.
+**Current state** — Features 01 through 12 are verified locally.
 
-**Next ready feature** — [12 · Inbox and deadline delivery](feature-specs/12-inbox-and-deadlines.md). [Feature 13](feature-specs/13-connector-runtime.md) also has its prerequisites met. Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
+**Next ready feature** — [13 · Connector management and ingestion](feature-specs/13-connector-runtime.md). Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
 
 | ID | Feature prompt | Depends on | State | Evidence |
 |---|---|---|---|---|
@@ -17,7 +17,7 @@
 | 09 | [Brief to approved project plan](feature-specs/09-brief-to-plan.md) | 05, 07, 08 | Done | Sourced candidates, cycle rejection, atomic approval and timeout recovery passed. See [Feature 09 evidence](#feature-09-evidence). |
 | 10 | [Risks from project activity](feature-specs/10-risk-from-activity.md) | 05, 06, 08, 09 | Done | Forecast impact, author clarification, stale replan protection and approved commitment changes passed. See [Feature 10 evidence](#feature-10-evidence). |
 | 11 | [Meetings and accountable follow-up](feature-specs/11-meetings-and-actions.md) | 06, 07, 08, 09 | Done | Exact segment playback, reviewed follow-up, reprocessing and media retention passed. See [Feature 11 evidence](#feature-11-evidence). |
-| 12 | [Inbox and deadline delivery](feature-specs/12-inbox-and-deadlines.md) | 06, 08, 10 | Pending | — |
+| 12 | [Inbox and deadline delivery](feature-specs/12-inbox-and-deadlines.md) | 06, 08, 10 | Done | Quiet-hour rescheduling, read state sync, local email delivery and revocation checks passed. See [Feature 12 evidence](#feature-12-evidence). |
 | 13 | [Connector management and ingestion](feature-specs/13-connector-runtime.md) | 03, 04, 07 | Pending | — |
 | 14 | [GitHub activity and approved comments](feature-specs/14-github-activity-and-actions.md) | 08, 13 | Pending | — |
 | 15 | [Calendar events and shared email](feature-specs/15-calendar-and-gmail.md) | 11, 13 | Pending | — |
@@ -245,3 +245,20 @@ Verified on 2026-11-23 with Node 26.5.0, pnpm 10.34.9, Chromium, loopback OIDC a
 Private recordings accept MP3, WAV and M4A up to 20 MB. Meetings support 7-, 30- and 90-day recording retention. Follow-up extraction uses explicit transcript cues and resolves dates against the meeting time and project timezone. Live OpenAI transcription remains a staging check and requires the [worker configuration](../README.md#meeting-recordings).
 
 All local Feature 11 acceptance checks passed. Feature 12 is next.
+
+## Feature 12 evidence
+
+Verified on 2026-11-23 with Node 26.5.0, pnpm 10.34.9, Chromium, a loopback OIDC issuer and email sink, and isolated PostgreSQL, Redis and S3-compatible storage.
+
+| Check | Result |
+|---|---|
+| `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm build`, `git diff --check` | Passed, including 17 Vitest tests. The build reported the existing Zod annotation and Vite entry-chunk size warnings. |
+| `pnpm db:migrate` twice and `pnpm db:generate` | Fresh and repeat migrations passed. Drizzle found no schema changes. An upgrade from Feature 11 preserved an existing task and pending review and delivered each eligible alert once under the app runtime role. The local Compose database retained its project, work item, comment and document counts after migrating. |
+| `pnpm test:e2e --workers=3 --trace=on --output=test-results/feature-12-full` | All 19 Chromium tests passed, including Redis recovery and Features 02–11. The [Feature 12 journey](../tests/e2e/inbox-and-deadlines.spec.ts) verified inbox reflow at 1440, 1024, 390 and 320 CSS px. Desktop and mobile trace frames showed the filters, deadline and read control. |
+| `pnpm test:e2e --project=inbox --no-deps --trace=on --output=test-results/feature-12-final` | Passed after adding browser assertions for due work, pending reviews and open risks on Home and a successful immediate assignment email that opened the recipient’s notification. |
+| Deadlines and read state | Editing a deadline during quiet hours canceled the old job and delivered exactly one reminder for the new date. Completion and archival suppressed pending jobs. An overdue owner and the accountable lead each received their own alert. Non-deadline edits preserved the due-date revision. Database fixtures checked project and recipient times across daylight-saving transitions. Two browser sessions showed the same saved read state. |
+| Email, review and risk access | A failed email preserved the in-app reminder. Two mentions produced one digest with authorized links. Revocation canceled a deferred mention, suppressed an email retry and denied the old inbox, digest contents and risk link. A resolved risk remained traceable through its original evidence for project members. A rejected review appeared as resolved and left the pending count. The app role was denied direct queue and email-dispatch access. |
+
+Deadlines use the project timezone and the explicit deadline, with the milestone commitment as fallback. Reminders default to 09:00 one calendar day before the deadline. Escalation defaults to two calendar days after the deadline becomes overdue. Members can set lead times, quiet hours, delivery timezone and a channel for each notification type. The daily digest runs at 08:00 recipient time and links to the authorized entries for its delivery day. See [inbox configuration](../README.md#inbox-delivery) for the local sink and email settings.
+
+All local Feature 12 acceptance checks passed. Live email provider verification remains a staging check. Feature 13 is ready.

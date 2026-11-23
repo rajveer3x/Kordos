@@ -3,6 +3,7 @@ import { ArrowRight } from "lucide-react";
 import { lazy, Suspense, useContext, type ReactNode } from "react";
 import { Link, Navigate, Route, Routes, useParams } from "react-router";
 import { AsyncState, PageHeading } from "./components/ui";
+import { InboxEntryPage, InboxPage } from "./features/inbox/inbox";
 import { PlanningScope } from "./features/planning/planning-client";
 import {
   PlanningOverview,
@@ -149,6 +150,8 @@ export function WorkspaceRoutes({
                 settings
               ) : live && destination.id === "home" ? (
                 <AssignedWork />
+              ) : live && destination.id === "inbox" ? (
+                <InboxPage />
               ) : live && destination.id === "projects" ? (
                 <ProjectDirectory projects={workspace.projects} />
               ) : live && destination.id === "reviews" ? (
@@ -168,6 +171,7 @@ export function WorkspaceRoutes({
             }
           />
         ))}
+        {live && <Route path="inbox/:entryId" element={<InboxEntryPage />} />}
         {live && (
           <Route
             path="reviews/:proposalId"

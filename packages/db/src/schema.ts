@@ -252,6 +252,7 @@ export const workItems = pgTable(
     ownerId: uuid("owner_id"),
     estimateDays: integer("estimate_days"),
     deadline: date(),
+    deadlineRevision: integer("deadline_revision").notNull().default(1),
     commitment: date(),
     blockerReason: text("blocker_reason"),
     blockerOwnerId: uuid("blocker_owner_id"),
@@ -299,6 +300,11 @@ export const workItems = pgTable(
       sql`${table.blockerReason} IS NOT NULL OR
     (${table.blockerOwnerId} IS NULL AND ${table.blockerResolution} IS NULL)`,
     ),
+    index("work_items_deadline_idx")
+      .on(sql`coalesce(${table.deadline}, ${table.commitment})`)
+      .where(
+        sql`${table.archivedAt} IS NULL AND ${table.status} <> 'done' AND coalesce(${table.deadline}, ${table.commitment}) IS NOT NULL`,
+      ),
     index("work_items_assigned_idx")
       .on(table.workspaceId, table.ownerId, table.id)
       .where(sql`${table.archivedAt} IS NULL AND ${table.status} <> 'done'`),
@@ -1324,5 +1330,85 @@ export const riskReplans = pgTable(
       t.projectId,
       t.findingId,
     ),
+  ],
+);
+
+export const inboxPreferences = pgTable(
+  "inbox_preferences",
+  {
+    workspaceId: uuid("workspace_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    version: integer().notNull(),
+    settings: jsonb().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.workspaceId, table.userId] }),
+    foreignKey({
+      name: "inbox_preferences_member_fk",
+      columns: [table.workspaceId, table.userId],
+      foreignColumns: [memberships.workspaceId, memberships.userId],
+    }),
+  ],
+);
+
+export const inboxEntries = pgTable(
+  "inbox_entries",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    recipientId: uuid("recipient_id").notNull(),
+    subjectId: uuid("subject_id").notNull(),
+    reason: text().notNull(),
+    revision: integer().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    nextAt: timestamp("next_at", { withTimezone: true }).notNull().defaultNow(),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    canceledAt: timestamp("canceled_at", { withTimezone: true }),
+    emailAt: timestamp("email_at", { withTimezone: true }),
+    emailSlot: date("email_slot"),
+    emailAttempts: integer("email_attempts").notNull().default(0),
+    emailResult: text("email_result"),
+  },
+  (table) => [
+    unique("inbox_entries_effect_unique").on(
+      table.workspaceId,
+      table.recipientId,
+      table.subjectId,
+      table.reason,
+      table.revision,
+    ),
+    foreignKey({
+      name: "inbox_entries_project_fk",
+      columns: [table.workspaceId, table.projectId],
+      foreignColumns: [projects.workspaceId, projects.id],
+    }),
+    foreignKey({
+      name: "inbox_entries_recipient_fk",
+      columns: [table.workspaceId, table.recipientId],
+      foreignColumns: [memberships.workspaceId, memberships.userId],
+    }),
+    check(
+      "inbox_entries_reason",
+      sql`${table.reason} IN ('assignment','mention','review','risk','due','overdue','escalation')`,
+    ),
+    check(
+      "inbox_entries_email_result",
+      sql`${table.emailResult} IN ('sent','failed','suppressed')`,
+    ),
+    index("inbox_entries_recipient_idx")
+      .on(table.workspaceId, table.recipientId, table.deliveredAt, table.id)
+      .where(sql`${table.deliveredAt} IS NOT NULL`),
+    index("inbox_entries_pending_idx")
+      .on(table.nextAt, table.id)
+      .where(sql`${table.deliveredAt} IS NULL AND ${table.canceledAt} IS NULL`),
+    index("inbox_entries_email_idx")
+      .on(table.emailAt, table.id)
+      .where(
+        sql`${table.emailAt} IS NOT NULL AND ${table.emailResult} IS NULL`,
+      ),
   ],
 );

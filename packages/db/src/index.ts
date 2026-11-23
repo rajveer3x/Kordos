@@ -6,6 +6,7 @@ import { z } from "zod";
 import { briefsStore } from "./briefs.js";
 import { collaborationStore } from "./collaboration.js";
 import { forecastStore } from "./forecast.js";
+import { inboxStore } from "./inbox.js";
 import { identityStore } from "./identity.js";
 import { meetingsStore } from "./meetings.js";
 import { knowledgeStore } from "./knowledge.js";
@@ -14,6 +15,7 @@ import { risksStore } from "./risks.js";
 import { reviewsStore } from "./reviews.js";
 import { foundationJobEffects, foundationJobs } from "./schema.js";
 
+export { connectInboxWorker, type InboxEmailJob } from "./inbox.js";
 export { connectMeetingWorker } from "./meetings.js";
 export { connectBriefWorker } from "./briefs.js";
 export { setDatabaseScope } from "./identity.js";
@@ -61,6 +63,7 @@ export function connectDatabase(url: string) {
     knowledge: knowledgeStore(client),
     meetings: meetingsStore(client),
     identity: identityStore(client),
+    inbox: inboxStore(client),
     planning: planningStore(client),
     reviews: reviewsStore(client),
     risks: risksStore(client),

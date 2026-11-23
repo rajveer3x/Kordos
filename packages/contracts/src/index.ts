@@ -55,3 +55,4 @@ export * from "./reviews.js";
 export * from "./briefs.js";
 export * from "./risks.js";
 export * from "./meetings.js";
+export * from "./inbox.js";

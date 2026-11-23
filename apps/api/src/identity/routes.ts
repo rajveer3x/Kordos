@@ -14,6 +14,7 @@ import { z } from "zod";
 import { attachCollaboration } from "../collaboration/live.js";
 import { registerCollaboration } from "../collaboration/routes.js";
 import type { Config } from "../config.js";
+import { registerInbox } from "../inbox/routes.js";
 import { registerKnowledge } from "../knowledge/routes.js";
 import { registerForecast } from "../planning/forecast-routes.js";
 import { registerPlanning } from "../planning/routes.js";
@@ -34,6 +35,7 @@ export function registerIdentity(
   stores: Pick<
     ReturnType<typeof connectDatabase>,
     | "identity"
+    | "inbox"
     | "planning"
     | "forecast"
     | "collaboration"
@@ -113,6 +115,7 @@ export function registerIdentity(
       }
 
       registerPlanning(api, stores.planning, requireActor);
+      registerInbox(api, stores.inbox, requireActor);
       registerReviews(api, stores, requireActor);
       registerRisks(api, stores.risks, requireActor);
       registerBriefs(api, stores.briefs, requireActor);

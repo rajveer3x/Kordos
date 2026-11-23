@@ -74,3 +74,11 @@ pnpm test:e2e
 ```
 
 To check recovery manually, run `docker compose stop redis` while the health page is open. Wait for **Degraded**, then submit a test job and keep its ID. The worker logs the Redis connection failure. Run `docker compose start redis` and watch the same job become **Completed**.
+
+## Inbox delivery
+
+The worker schedules deadlines and processes in-app delivery automatically. Configure `BRIEF_WORKER_DATABASE_URL`, `INBOX_EMAIL_URL`, `INBOX_EMAIL_KEY` and `INBOX_EMAIL_FROM` together to enable email. A deployed sender can use the Resend `/emails` endpoint and a verified sending address. The worker uses `APP_ORIGIN` for links and sends messages with [Resend-compatible idempotency keys](https://resend.com/docs/dashboard/emails/idempotency-keys).
+
+For local development, start `node infra/email/sink.ts`, enable the example email variables, and open [the local email sink](http://127.0.0.1:4491/messages) to inspect captured messages. The sink keeps messages in memory and listens on loopback.
+
+Notification preferences are per workspace member. By default, the inbox uses the workspace timezone for delivery and sends no email. Deadline dates include the entire day in the project timezone. The default reminder is at 09:00 project time one calendar day before the deadline, and escalation begins two calendar days after the work becomes overdue. Quiet hours and the 08:00 digest use the member's delivery timezone. Email links open the authorized inbox entry or daily digest.

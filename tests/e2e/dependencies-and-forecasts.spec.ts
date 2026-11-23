@@ -483,6 +483,8 @@ test("forecast scenarios preserve the plan and concurrent dependencies cannot cr
         await sql`DELETE FROM outbox WHERE workspace_id = ${workspace}`;
         await sql`DELETE FROM audit_events WHERE workspace_id = ${workspace}`;
         await sql`DELETE FROM work_items WHERE workspace_id = ${workspace}`;
+        await sql`DELETE FROM inbox_entries WHERE workspace_id = ${workspace}`;
+        await sql`DELETE FROM inbox_preferences WHERE workspace_id = ${workspace}`;
         await sql`DELETE FROM project_members WHERE workspace_id = ${workspace}`;
         await sql`DELETE FROM projects WHERE workspace_id = ${workspace}`;
         await sql`DELETE FROM invitations WHERE workspace_id = ${workspace}`;

@@ -14,6 +14,7 @@ import {
   PageHeading,
   StatusLabel,
 } from "../../components/ui";
+import { HomePriorities } from "../inbox/inbox";
 import { denied, read } from "../identity/api";
 import { projectPath, workspacePath } from "../workspace/workspace-model";
 import {
@@ -119,6 +120,7 @@ export function AssignedWork() {
     <div className="standard-page">
       <title>Home · Kordos</title>
       <PageHeading title="Home" />
+      <HomePriorities />
       <section
         className="planning-panel glass-panel"
         aria-labelledby="assigned-title"
@@ -156,7 +158,12 @@ export function AssignedWork() {
             <PageButtons
               cursor={cursor}
               nextCursor={query.data.nextCursor}
-              onPage={(value) => setParams(value ? { cursor: value } : {})}
+              onPage={(value) => {
+                const next = new URLSearchParams(params);
+                if (value) next.set("cursor", value);
+                else next.delete("cursor");
+                setParams(next);
+              }}
             />
           </>
         )}
