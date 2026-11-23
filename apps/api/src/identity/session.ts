@@ -64,6 +64,7 @@ export function createSessionService(config: Config, redis: Redis) {
   }
 
   return {
+    sessionKey,
     async actor(cookies: FastifyRequest["cookies"]) {
       const key = sessionKey(cookies);
       if (!key) return;

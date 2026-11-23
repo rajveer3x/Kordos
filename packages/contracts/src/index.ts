@@ -59,3 +59,5 @@ export * from "./inbox.js";
 export * from "./connectors.js";
 
 export * from "./github.js";
+
+export * from "./google.js";

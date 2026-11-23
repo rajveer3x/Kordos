@@ -4,6 +4,7 @@ import {
   githubRepositorySchema,
   githubSourceSchema,
 } from "./github.js";
+import { googleScopeIdSchema } from "./google.js";
 import { idSchema } from "./identity.js";
 
 const instant = z.iso.datetime({ offset: true });
@@ -14,7 +15,12 @@ const opaque = z
   .min(1)
   .max(512)
   .refine((value) => !value.includes("\0"));
-export const connectorProviderSchema = z.enum(["fixture", "github"]);
+export const connectorProviderSchema = z.enum([
+  "fixture",
+  "github",
+  "calendar",
+  "gmail",
+]);
 export const connectorAudienceSchema = z.enum(["project", "private"]);
 export const connectorStatusSchema = z.enum([
   "paused",
@@ -66,7 +72,7 @@ const connectorMappingSchema = z.object({
   id: idSchema,
   projectId: idSchema.nullable(),
   projectName: z.string().nullable(),
-  scope: connectorScopeSchema.nullable(),
+  scope: googleScopeIdSchema.nullable(),
   audience: connectorAudienceSchema,
   lastSuccess: instant.nullable(),
 });
@@ -87,6 +93,7 @@ export const connectorDirectorySchema = z.object({
   enabled: z.boolean(),
   fixtureEnabled: z.boolean(),
   githubInstallations: z.array(githubIdSchema),
+  googleEnabled: z.boolean(),
   items: z.array(connectorSchema),
   destinations: z.array(z.object({ id: idSchema, name: z.string() })),
 });
@@ -117,6 +124,7 @@ export const connectorChangeSchema = z.discriminatedUnion("kind", [
       .refine((value) => !value.includes("\0")),
     url: providerLink,
     github: githubSourceSchema.optional(),
+    calendarStart: instant.optional(),
   }),
   z.object({ ...sourceFields, kind: z.literal("delete") }),
 ]);
@@ -154,7 +162,7 @@ export const connectorClaimSchema = z.discriminatedUnion("kind", [
     provider: connectorProviderSchema,
     credential: z.string().nullable(),
     githubInstallation: githubIdSchema.nullable().optional(),
-    scope: connectorScopeSchema,
+    scope: googleScopeIdSchema,
     checkpoint: opaque.nullable(),
     delivery: connectorDeliverySchema.nullable(),
     githubDelivery: z
@@ -184,6 +192,14 @@ export const connectorSourceSchema = sourceSummary.extend({
   revision: positive,
   sourceId: idSchema,
   canShare: z.boolean(),
+  gmail: z.boolean().optional(),
+  calendar: z
+    .object({
+      startsAt: instant,
+      meetingId: idSchema.nullable(),
+      canAttach: z.boolean(),
+    })
+    .optional(),
   canRevoke: z.boolean(),
   sharedBy: z.string().nullable(),
   github: githubSourceSchema.nullable().optional(),

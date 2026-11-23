@@ -11,6 +11,7 @@ import { AsyncState, Button, StatusLabel } from "../../components/ui";
 import { denied, errorMessage, read, request } from "../identity/api";
 import { planningRefresh, usePlanning } from "../planning/planning-client";
 import { projectPath, workspacePath } from "../workspace/workspace-model";
+import { GoogleConnect, GoogleScopePicker } from "./google-settings";
 import "./connectors.css";
 
 const labels = {
@@ -214,15 +215,18 @@ function Connection({
   item,
   destinations,
   enabled,
+  googleEnabled,
 }: {
   item: Connector;
   destinations: Destination[];
   enabled: boolean;
+  googleEnabled: boolean;
 }) {
   const { workspace } = usePlanning();
   const save = useConnectorMutation(item.id);
   const [confirmation, setConfirmation] = useState<"disconnect" | string>();
   const github = item.provider === "github";
+  const google = item.provider === "calendar" || item.provider === "gmail";
   const disconnected = item.status === "disconnected";
   const revoked =
     item.status === "paused" && item.issue === "credential_revoked";
@@ -248,7 +252,7 @@ function Connection({
         </StatusLabel>
       </div>
       <p className="planning-help">
-        {github ? "GitHub App" : "Fixture provider"} ·{" "}
+        {github ? "GitHub App" : google ? "Google OAuth" : "Fixture provider"} ·{" "}
         {item.lastSuccess ? (
           <>
             Last success{" "}
@@ -264,7 +268,9 @@ function Connection({
         <p>
           {item.issue === "credential_revoked" && github
             ? "GitHub rejected the installation. Restore access in GitHub, then recheck the installation."
-            : issues[item.issue]}
+            : item.issue === "credential_revoked" && google
+              ? "Google rejected the grant. The owner can reconnect the original account."
+              : issues[item.issue]}
         </p>
       )}
       {item.retryAt && (
@@ -417,6 +423,16 @@ function Connection({
                     Recheck installation
                   </Button>
                 )
+              ) : google ? (
+                googleEnabled &&
+                item.mappings.length > 0 && (
+                  <GoogleConnect
+                    provider={
+                      item.provider === "calendar" ? "calendar" : "gmail"
+                    }
+                    reconnect={{ id: item.id, version: item.version }}
+                  />
+                )
               ) : (
                 <details open={revoked || undefined}>
                   <summary>Replace access token</summary>
@@ -450,7 +466,7 @@ function Connection({
                   </form>
                 </details>
               )}
-              {destinations.length > 0 && (
+              {!google && destinations.length > 0 && (
                 <details>
                   <summary>Add a scope mapping</summary>
                   <form
@@ -521,6 +537,12 @@ export function ConnectorSettings() {
             </p>
           ) : query.data.destinations.length ? (
             <>
+              {query.data.googleEnabled && (
+                <div className="planning-actions">
+                  <GoogleConnect provider="calendar" />
+                  <GoogleConnect provider="gmail" />
+                </div>
+              )}
               {query.data.githubInstallations.length > 0 && (
                 <NewConnection
                   destinations={query.data.destinations}
@@ -536,6 +558,9 @@ export function ConnectorSettings() {
               A project lead can connect a source to an active project.
             </p>
           )}
+          {query.data.googleEnabled && (
+            <GoogleScopePicker destinations={query.data.destinations} />
+          )}
           {query.data.items.length ? (
             <ul className="connector-list">
               {query.data.items.map((item) => (
@@ -544,6 +569,7 @@ export function ConnectorSettings() {
                   item={item}
                   destinations={query.data.destinations}
                   enabled={query.data.enabled}
+                  googleEnabled={query.data.googleEnabled}
                 />
               ))}
             </ul>

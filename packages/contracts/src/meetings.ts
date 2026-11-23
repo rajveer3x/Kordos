@@ -146,6 +146,7 @@ const summary = z.object({
   startsAt: instant,
   status: state,
   organizer: personSchema,
+  calendarStatus: z.enum(["scheduled", "canceled"]).nullable(),
 });
 export const meetingPageSchema = z.object({
   items: z.array(summary),

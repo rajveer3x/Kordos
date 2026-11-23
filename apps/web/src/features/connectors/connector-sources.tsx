@@ -86,6 +86,68 @@ export function ConnectorSources() {
   );
 }
 
+function CalendarAttachment({ source }: { source: ConnectorSource }) {
+  const { api, base, key, writable } = useKnowledge();
+  const client = useQueryClient();
+  const navigate = useNavigate();
+  const [preview, setPreview] = useState(false);
+  const meetings = base.replace(/documents$/, "meetings");
+  const save = useMutation({
+    mutationFn: () =>
+      request(api + "/connector-sources/" + source.id + "/calendar-meeting", {
+        method: "POST",
+        schema: connectorSavedSchema,
+        body: { revision: source.revision },
+      }),
+    async onSuccess(saved) {
+      if (!saved) return;
+      await client.invalidateQueries({ queryKey: key });
+      navigate(meetings + "/" + saved.id);
+    },
+  });
+  if (!source.calendar) return null;
+  const { startsAt, meetingId, canAttach } = source.calendar;
+  return (
+    <div className="planning-form">
+      <p>
+        Starts{" "}
+        <time dateTime={startsAt}>{new Date(startsAt).toLocaleString()}</time>
+      </p>
+      {meetingId ? (
+        <Link to={meetings + "/" + meetingId}>Open project meeting</Link>
+      ) : (
+        canAttach &&
+        writable && (
+          <>
+            {preview && (
+              <p>
+                Project members will see the event title and start time and
+                receive Calendar updates on this meeting.
+              </p>
+            )}
+            <div className="planning-actions">
+              <Button
+                disabled={save.isPending}
+                onClick={() => (preview ? save.mutate() : setPreview(true))}
+              >
+                {preview
+                  ? "Confirm calendar attachment"
+                  : "Add to project meetings"}
+              </Button>
+              {preview && (
+                <Button variant="secondary" onClick={() => setPreview(false)}>
+                  Cancel
+                </Button>
+              )}
+            </div>
+          </>
+        )
+      )}
+      {save.isError && <p role="alert">{errorMessage(save.error)}</p>}
+    </div>
+  );
+}
+
 function SourceActions({ source }: { source: ConnectorSource }) {
   const { api, base, key, details, writable } = useKnowledge();
   const client = useQueryClient();
@@ -148,7 +210,7 @@ function SourceActions({ source }: { source: ConnectorSource }) {
           {preview && (
             <>
               <p>Members with access to {details.name} can read this copy.</p>
-              <strong>{source.title}</strong>
+              <strong>{source.gmail ? "Shared email" : source.title}</strong>
               <blockquote className="connector-passage">{excerpt}</blockquote>
               {source.url && (
                 <p className="planning-help">
@@ -252,7 +314,11 @@ export function ConnectorSourcePage() {
                 ? githubStateLabels[query.data.github.state]
                 : query.data.kind === "share"
                   ? "Shared excerpt"
-                  : "Mirror"}
+                  : query.data.calendar
+                    ? "Calendar event"
+                    : query.data.gmail
+                      ? "Private Gmail message"
+                      : "Mirror"}
             </StatusLabel>
           </KnowledgeHeading>
           {query.data.github && (
@@ -280,9 +346,17 @@ export function ConnectorSourcePage() {
               {new Date(query.data.observedAt).toLocaleString()}
             </time>
           </p>
-          <blockquote className="connector-passage">
-            {query.data.body}
-          </blockquote>
+          {query.data.body && (
+            <blockquote className="connector-passage">
+              {query.data.body}
+            </blockquote>
+          )}
+          {query.data.calendar && (
+            <CalendarAttachment
+              key={query.data.id + "/" + query.data.revision}
+              source={query.data}
+            />
+          )}
           {query.data.url && (
             <a href={query.data.url} rel="noreferrer">
               Open at provider

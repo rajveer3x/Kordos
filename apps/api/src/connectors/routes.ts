@@ -1,5 +1,6 @@
 import { createHash, createHmac } from "node:crypto";
 import {
+  calendarAttachmentSchema,
   connectorCommandSchema,
   connectorDirectorySchema,
   connectorSavedSchema,
@@ -67,6 +68,12 @@ export function connectorWriteResult(
         "conflict",
         "Open the latest source revision before sharing.",
       );
+    case "google_account_changed":
+      throw new IdentityError(
+        409,
+        "conflict",
+        "Reconnect with the original Google account.",
+      );
     case "invalid_excerpt":
       throw new IdentityError(
         400,
@@ -86,9 +93,14 @@ export function registerConnectors(
   api: FastifyInstance,
   db: ConnectorStore,
   requireActor: (request: FastifyRequest) => Promise<string>,
-  options: { key?: string; fixture: boolean; github: Record<string, string> },
+  options: {
+    key?: string;
+    fixture: boolean;
+    google: boolean;
+    github: Record<string, string>;
+  },
 ) {
-  const { key, fixture, github } = options;
+  const { key, fixture, github, google } = options;
   function credentials(
     workspaceId: string,
     id: string,
@@ -122,7 +134,8 @@ export function registerConnectors(
     );
     return connectorDirectorySchema.parse({
       ...value,
-      enabled: fixtureEnabled || githubInstallations.length > 0,
+      enabled: fixtureEnabled || google || githubInstallations.length > 0,
+      googleEnabled: google,
       fixtureEnabled,
       githubInstallations,
     });
@@ -232,6 +245,16 @@ export function registerConnectors(
     );
     if (!source) throw unavailable();
     return connectorSourceSchema.parse(source);
+  });
+
+  api.post(sources + "/:id/calendar-meeting", async (request, reply) => {
+    const actor = await requireActor(request);
+    const { workspaceId, projectId, id } = parse(sourceParams, request.params);
+    const { revision } = parse(calendarAttachmentSchema, request.body);
+    const result = connectorWriteResult(
+      await db.attachCalendar([actor, workspaceId], projectId, id, revision),
+    );
+    return reply.code(201).send(result);
   });
 
   api.post(sources + "/:id/shares", async (request, reply) => {

@@ -210,6 +210,9 @@ export function MeetingsPage() {
         ) : (
           <div className="planning-actions">
             <Button onClick={() => setCreating(true)}>New meeting</Button>
+            <Link to={base.replace(/meetings$/, "documents/sources")}>
+              Browse external sources
+            </Link>
           </div>
         ))}
       {command.error && (
@@ -238,7 +241,12 @@ export function MeetingsPage() {
                   </time>
                 </span>
               </div>
-              <StatusLabel>{statusLabel[meeting.status]}</StatusLabel>
+              <div className="planning-actions">
+                {meeting.calendarStatus === "canceled" && (
+                  <StatusLabel tone="risk">Calendar event canceled</StatusLabel>
+                )}
+                <StatusLabel>{statusLabel[meeting.status]}</StatusLabel>
+              </div>
             </li>
           ))}
         </ul>
@@ -347,6 +355,16 @@ function MeetingContents({
           </time>{" "}
           · {meeting.timeZone}
         </p>
+        {meeting.calendarStatus && (
+          <StatusLabel
+            announce
+            tone={meeting.calendarStatus === "canceled" ? "risk" : "neutral"}
+          >
+            {meeting.calendarStatus === "canceled"
+              ? "Calendar event canceled"
+              : "Linked to Google Calendar"}
+          </StatusLabel>
+        )}
         {meeting.agenda && (
           <div className="meeting-section">
             <h2>Agenda</h2>

@@ -14,6 +14,7 @@ import { z } from "zod";
 import { attachCollaboration } from "../collaboration/live.js";
 import { registerCollaboration } from "../collaboration/routes.js";
 import type { Config } from "../config.js";
+import { registerGoogle } from "../connectors/google.js";
 import { registerConnectors } from "../connectors/routes.js";
 import { registerInbox } from "../inbox/routes.js";
 import { registerKnowledge } from "../knowledge/routes.js";
@@ -123,10 +124,21 @@ export function registerIdentity(
           ? config.CONNECTOR_TOKEN_KEY
           : undefined,
         fixture: !!config.CONNECTOR_FIXTURE_URL,
+        google: !!config.google,
         github: config.GITHUB_WEBHOOK_SECRET
           ? (config.GITHUB_INSTALLATIONS ?? {})
           : {},
       });
+      if (config.google)
+        registerGoogle(
+          api,
+          stores.connectors,
+          requireActor,
+          session.sessionKey,
+          redis,
+          config.origin,
+          config.google,
+        );
       registerReviews(api, stores, requireActor);
       registerRisks(api, stores.risks, requireActor);
       registerBriefs(api, stores.briefs, requireActor);

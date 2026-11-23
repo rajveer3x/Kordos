@@ -118,6 +118,19 @@ export function connectorStore(client: Sql) {
         return row?.value;
       });
     },
+    attachCalendar(
+      [actor, workspace]: Scope,
+      project: string,
+      source: string,
+      revision: number,
+    ) {
+      return scoped(actor, workspace, async (sql) => {
+        const [row] = await sql<
+          { value: CommandResult | null }[]
+        >`SELECT kordos_connectors.attach_calendar(${project}, ${source}, ${revision}) AS value`;
+        return row?.value;
+      });
+    },
     share(
       [actor, workspace]: Scope,
       project: string,

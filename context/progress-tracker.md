@@ -1,8 +1,8 @@
 # Delivery tracker
 
-**Current state** — Features 01 through 14 are verified locally.
+**Current state** — Features 01 through 15 are verified locally.
 
-**Next ready feature** — [15 · Calendar events and shared email](feature-specs/15-calendar-and-gmail.md). Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
+**Next ready feature** — [16 · Permission-aware hybrid search](feature-specs/16-hybrid-search.md). Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
 
 | ID | Feature prompt | Depends on | State | Evidence |
 |---|---|---|---|---|
@@ -20,7 +20,7 @@
 | 12 | [Inbox and deadline delivery](feature-specs/12-inbox-and-deadlines.md) | 06, 08, 10 | Done | Quiet-hour rescheduling, read state sync, local email delivery and revocation checks passed. See [Feature 12 evidence](#feature-12-evidence). |
 | 13 | [Connector management and ingestion](feature-specs/13-connector-runtime.md) | 03, 04, 07 | Done | Delivery deduplication, checkpoint recovery, private-source isolation and disconnect passed. See [Feature 13 evidence](#feature-13-evidence). |
 | 14 | [GitHub activity and approved comments](feature-specs/14-github-activity-and-actions.md) | 08, 13 | Done | Webhook convergence, destination revocation and one reconciled publication passed. See [Feature 14 evidence](#feature-14-evidence). |
-| 15 | [Calendar events and shared email](feature-specs/15-calendar-and-gmail.md) | 11, 13 | Pending | — |
+| 15 | [Calendar events and shared email](feature-specs/15-calendar-and-gmail.md) | 11, 13 | Done | Calendar cancellation, per-message excerpt sharing and recovery from both expired cursors passed. See [Feature 15 evidence](#feature-15-evidence). |
 | 16 | [Permission-aware hybrid search](feature-specs/16-hybrid-search.md) | 07, 11, 14, 15 | Pending | — |
 | 17 | [Weekly health and duplicate review](feature-specs/17-health-and-duplicates.md) | 08, 10, 12, 16 | Pending | — |
 | 18 | [Workspace home and activity history](feature-specs/18-workspace-home-and-activity.md) | 10, 11, 12, 14, 17 | Pending | — |
@@ -297,3 +297,21 @@ Verified on 2026-11-23 with Node 26.5.0, pnpm 10.34.9, Chromium, a loopback OIDC
 GitHub installations are bound to a workspace in server configuration. Comments require an issue or pull request linked to active work in its mapped project. The exact reviewed Markdown includes a delivery reference that lets the worker reconcile without issuing another POST. The [GitHub App setup](../README.md#github-app) documents configuration and scan limits.
 
 All local Feature 14 acceptance checks passed. Live GitHub App verification remains a staging check using a designated installation. Feature 15 is ready.
+
+## Feature 15 evidence
+
+Verified locally on 2026-11-23 with Node 26.5.0, pnpm 10.34.9, Chromium, loopback OIDC and Google API fixtures, and isolated PostgreSQL, Redis and S3-compatible storage.
+
+| Check | Result |
+|---|---|
+| `pnpm db:migrate` twice and `pnpm db:generate` | Fresh and repeat migrations passed. Drizzle found no schema changes. An isolated Feature 14 upgrade preserved an existing restricted project, meeting and fixture mirror under the app runtime role. |
+| `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm build`, `git diff --check` | Passed. All 17 Vitest tests passed. The build reported the existing Zod annotation and Vite entry-chunk size warnings. |
+| `pnpm test:e2e --workers=3 --trace=on --output=test-results/feature-15-full` | All 22 Chromium tests passed, including Redis recovery and Features 02–14. |
+| `pnpm test:e2e --project=google --no-deps --workers=1 --trace=on --output=test-results/feature-15-final` | The focused [Google connector journey](../tests/e2e/calendar-and-gmail.spec.ts) passed after the final focus handling edit. It checked focus after OAuth and reflow at 1440, 1024, 390 and 320 CSS px. Trace frames showed the mobile scope picker, shared excerpt and canceled meeting. |
+| Calendar and access | Selecting and attaching an event created one project meeting across repeated attachment. A failed second page preserved the previous token and meeting title. The next successful sync applied the new title and time. A cancellation with only an event ID preserved the meeting, confirmed decision and supporting transcript excerpt. A signed-in Calendar attendee outside the workspace received 404. |
+| Gmail and access | A project viewer could read the approved excerpt and share attribution. The original subject, remaining body and later message in the same thread stayed private. Sync checked only the selected label for message contents. Revocation made the shared excerpt unavailable. The app runtime role was denied direct access to Gmail text and encrypted credentials. |
+| Cursor recovery and OAuth | Calendar 410 and Gmail history 404 triggered paginated rescans of the selected scopes. Rebuild preserved the meeting, message and share IDs without exposing any additional content. The OAuth fixture verified PKCE, offline authorization, callback replay denial and rejection of a reconnect from a different Google account. |
+
+Each connection maps one selected calendar or Gmail label. Calendar previews use event titles and start times. An explicit attachment lets Calendar changes update the shared meeting. Gmail shares capture a selected excerpt of one message revision and support independent revocation.
+
+All local Feature 15 acceptance checks passed. Feature 16 is ready. Live Google verification remains a staging check using designated test accounts and a configured OAuth client. See the [Google connector setup](../README.md#google-calendar-and-gmail).

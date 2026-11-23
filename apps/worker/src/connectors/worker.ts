@@ -4,6 +4,7 @@ import {
   connectorQueue,
   connectorQueueJobSchema,
   type ConnectorQueueJob,
+  type GoogleSettings,
 } from "@kordos/contracts";
 import {
   connectConnectorWorker,
@@ -14,6 +15,7 @@ import { Queue, Worker } from "bullmq";
 import type { Redis } from "ioredis";
 import { ConnectorFailure, fixtureAdapter, syncConnector } from "./adapter.js";
 import { githubAdapter, githubFailure, type GitHubSettings } from "./github.js";
+import { syncGoogle } from "./google.js";
 import { publishGitHubComment } from "./github-comments.js";
 
 export function startConnectors(
@@ -21,13 +23,14 @@ export function startConnectors(
   settings: {
     fixture?: { key: string; endpoint: string };
     github?: GitHubSettings;
+    google?: GoogleSettings;
   },
   producer: Redis,
   consumer: Redis,
   reportRedisError: (error: Error) => void,
 ) {
   const db = connectConnectorWorker(databaseUrl);
-  const { fixture } = settings;
+  const { fixture, google } = settings;
   const adapter = fixture ? fixtureAdapter(fixture.endpoint) : undefined;
   const github = settings.github ? githubAdapter(settings.github) : undefined;
   const outbound = github
@@ -90,6 +93,28 @@ export function startConnectors(
               ...(await repo.sync(job.checkpoint)),
             };
           }
+        } else if (job.provider === "calendar" || job.provider === "gmail") {
+          if (!google || !job.credential)
+            throw new ConnectorFailure("credential_revoked");
+          if (job.kind !== "sync") throw new ConnectorFailure("invalid_batch");
+          let refresh: string;
+          try {
+            refresh = openConnectorCredential(
+              google.key,
+              job.workspaceId,
+              job.installationId,
+              job.credential,
+            );
+          } catch {
+            throw new ConnectorFailure("credential_revoked");
+          }
+          batch = await syncGoogle(
+            google,
+            job.provider,
+            refresh,
+            job.scope,
+            job.checkpoint,
+          );
         } else {
           if (!adapter || !fixture || !job.credential)
             throw new ConnectorFailure("credential_revoked");

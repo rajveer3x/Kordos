@@ -4,6 +4,8 @@ import {
   foundationJobKind,
   foundationQueue,
   githubBindingsSchema,
+  googleEndpoints,
+  googleOAuthEnv,
   githubIdSchema,
   type FoundationJobPayload,
 } from "@kordos/contracts";
@@ -54,6 +56,8 @@ const config = z
       .min(50)
       .max(30000)
       .default(12000),
+    ...googleOAuthEnv,
+    GOOGLE_FIXTURE_URL: fixtureEndpointSchema.optional(),
     CONNECTOR_TOKEN_KEY: connectorKeySchema.optional(),
     CONNECTOR_FIXTURE_URL: fixtureEndpointSchema.optional(),
     GITHUB_APP_ID: githubIdSchema.optional(),
@@ -162,11 +166,30 @@ const github =
         bindings: settings.GITHUB_INSTALLATIONS,
       }
     : undefined;
+const google =
+  settings.GOOGLE_CLIENT_ID &&
+  settings.GOOGLE_CLIENT_SECRET &&
+  settings.CONNECTOR_TOKEN_KEY
+    ? {
+        clientId: settings.GOOGLE_CLIENT_ID,
+        clientSecret: settings.GOOGLE_CLIENT_SECRET,
+        key: settings.CONNECTOR_TOKEN_KEY,
+        endpoints: googleEndpoints(
+          process.env.NODE_ENV !== "production"
+            ? settings.GOOGLE_FIXTURE_URL
+            : undefined,
+        ),
+      }
+    : undefined;
+if ((settings.GOOGLE_CLIENT_ID || settings.GOOGLE_CLIENT_SECRET) && !google)
+  throw new Error(
+    "Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and CONNECTOR_TOKEN_KEY together.",
+  );
 const connectors =
-  settings.BRIEF_WORKER_DATABASE_URL && (fixture || github)
+  settings.BRIEF_WORKER_DATABASE_URL && (fixture || github || google)
     ? startConnectors(
         settings.BRIEF_WORKER_DATABASE_URL,
-        { fixture, github },
+        { fixture, github, google },
         producer,
         consumer,
         reportRedisError,

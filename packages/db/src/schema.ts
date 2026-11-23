@@ -797,10 +797,28 @@ export const meetings = pgTable(
     mode: text(),
     failure: text(),
     pendingText: text("pending_text"),
+    calendarSourceId: uuid("calendar_source_id"),
+    calendarRevision: integer("calendar_revision"),
+    calendarCanceled: boolean("calendar_canceled").notNull().default(false),
     lease: uuid(),
     leaseUntil: timestamp("lease_until", { withTimezone: true }),
   },
   (t) => [
+    unique("meetings_calendar_source_unique").on(t.calendarSourceId),
+    foreignKey({
+      name: "meetings_calendar_source_fk",
+      columns: [t.workspaceId, t.projectId, t.calendarSourceId],
+      foreignColumns: [
+        sourceObjects.workspaceId,
+        sourceObjects.projectId,
+        sourceObjects.id,
+      ],
+    }),
+    check(
+      "meetings_calendar_source_state",
+      sql`(${t.calendarSourceId} IS NULL AND ${t.calendarRevision} IS NULL AND NOT ${t.calendarCanceled})
+      OR (${t.calendarSourceId} IS NOT NULL AND ${t.calendarRevision} IS NOT NULL AND ${t.calendarRevision} > 0)`,
+    ),
     unique("meetings_scope_unique").on(t.workspaceId, t.projectId, t.id),
     foreignKey({
       name: "meetings_project_fk",
@@ -1438,6 +1456,7 @@ export const connectorInstallations = pgTable(
     label: text().notNull(),
     provider: text().notNull(),
     githubInstallation: text("github_installation"),
+    googleSubject: text("google_subject"),
     credential: text(),
     state: text().notNull().default("enabled"),
     version: integer().notNull().default(1),
@@ -1453,8 +1472,9 @@ export const connectorInstallations = pgTable(
     }),
     check(
       "connector_installations_provider",
-      sql`(${table.provider} = 'fixture' AND ${table.githubInstallation} IS NULL)
-        OR (${table.provider} = 'github' AND ${table.githubInstallation} ~ '^[1-9][0-9]{0,15}$' AND ${table.githubInstallation} IS NOT NULL)`,
+      sql`(${table.provider} = 'fixture' AND ${table.githubInstallation} IS NULL AND ${table.googleSubject} IS NULL)
+        OR (${table.provider} = 'github' AND ${table.githubInstallation} ~ '^[1-9][0-9]{0,15}$' AND ${table.githubInstallation} IS NOT NULL AND ${table.googleSubject} IS NULL)
+        OR (${table.provider} IN ('calendar','gmail') AND ${table.githubInstallation} IS NULL AND ${table.googleSubject} ~ '^[A-Za-z0-9_-]{1,255}$' AND ${table.googleSubject} IS NOT NULL)`,
     ),
     uniqueIndex("connector_installations_active_github")
       .on(table.workspaceId, table.githubInstallation)
@@ -1619,6 +1639,7 @@ export const sourceRevisions = pgTable(
     revision: integer().notNull(),
     revisionKey: text("revision_key").notNull(),
     github: jsonb(),
+    calendarStart: timestamp("calendar_start", { withTimezone: true }),
     observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
     title: text(),
     body: text(),

@@ -3,7 +3,11 @@ import {
   fixtureEndpointSchema,
   databaseUrlSchema,
 } from "@kordos/db";
-import { githubBindingsSchema } from "@kordos/contracts";
+import {
+  githubBindingsSchema,
+  googleEndpoints,
+  googleOAuthEnv,
+} from "@kordos/contracts";
 import { z } from "zod";
 
 const configSchema = z.object({
@@ -20,6 +24,8 @@ const configSchema = z.object({
   STORAGE_BUCKET: z.string().regex(/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/),
   STORAGE_ACCESS_KEY_ID: z.string().trim().min(1),
   STORAGE_SECRET_ACCESS_KEY: z.string().trim().min(1),
+  ...googleOAuthEnv,
+  GOOGLE_FIXTURE_URL: fixtureEndpointSchema.optional(),
   CONNECTOR_TOKEN_KEY: connectorKeySchema.optional(),
   CONNECTOR_FIXTURE_URL: fixtureEndpointSchema.optional(),
   CONNECTOR_FIXTURE_WEBHOOK_SECRET: z.string().min(32).optional(),
@@ -54,8 +60,30 @@ export function loadConfig(env: NodeJS.ProcessEnv) {
     );
   }
 
+  const {
+    GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET,
+    CONNECTOR_TOKEN_KEY,
+    GOOGLE_FIXTURE_URL,
+  } = result.data;
+  const google =
+    GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET && CONNECTOR_TOKEN_KEY
+      ? {
+          clientId: GOOGLE_CLIENT_ID,
+          clientSecret: GOOGLE_CLIENT_SECRET,
+          key: CONNECTOR_TOKEN_KEY,
+          endpoints: googleEndpoints(
+            env.NODE_ENV !== "production" ? GOOGLE_FIXTURE_URL : undefined,
+          ),
+        }
+      : undefined;
+  if ((GOOGLE_CLIENT_ID || GOOGLE_CLIENT_SECRET) && !google)
+    throw new Error(
+      "Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and CONNECTOR_TOKEN_KEY together.",
+    );
+
   if (!AUTH0_ISSUER && !AUTH0_CLIENT_ID && !AUTH0_CLIENT_SECRET) {
-    return { ...result.data, origin, auth: undefined };
+    return { ...result.data, origin, google, auth: undefined };
   }
   if (!AUTH0_ISSUER || !AUTH0_CLIENT_ID || !AUTH0_CLIENT_SECRET) {
     throw new Error(
@@ -71,6 +99,7 @@ export function loadConfig(env: NodeJS.ProcessEnv) {
   return {
     ...result.data,
     origin,
+    google,
     auth: {
       issuer: issuer.href,
       clientId: AUTH0_CLIENT_ID,

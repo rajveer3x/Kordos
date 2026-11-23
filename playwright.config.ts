@@ -37,6 +37,7 @@ export default defineConfig({
         "**/inbox-and-deadlines.spec.ts",
         "**/connectors.spec.ts",
         "**/github-activity-and-actions.spec.ts",
+        "**/calendar-and-gmail.spec.ts",
       ],
     },
     {
@@ -110,6 +111,12 @@ export default defineConfig({
       dependencies: ["connectors"],
       use: { actionTimeout: 10_000 },
     },
+    {
+      name: "google",
+      testMatch: "**/calendar-and-gmail.spec.ts",
+      dependencies: ["github"],
+      use: { actionTimeout: 10_000 },
+    },
   ],
   webServer: {
     command: "pnpm dev",
@@ -125,6 +132,9 @@ export default defineConfig({
       CONNECTOR_FIXTURE_URL: `http://127.0.0.1:${process.env.TEST_CONNECTOR_PORT ?? 4493}/`,
       CONNECTOR_FIXTURE_WEBHOOK_SECRET:
         "kordos-connector-fixture-signing-secret",
+      GOOGLE_CLIENT_ID: "kordos-google-test-client",
+      GOOGLE_CLIENT_SECRET: "kordos-google-test-secret",
+      GOOGLE_FIXTURE_URL: `http://127.0.0.1:${process.env.TEST_GOOGLE_PORT ?? 4495}/`,
       GITHUB_APP_ID: "4455",
       GITHUB_APP_PRIVATE_KEY: githubKey,
       GITHUB_INSTALLATIONS: JSON.stringify({ "8801": githubWorkspace }),
