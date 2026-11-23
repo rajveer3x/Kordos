@@ -12,3 +12,5 @@ export function runFoundationJob(input: unknown): {
   const { id } = foundationJobPayloadSchema.parse(input);
   return { id, effect: foundationJobEffect };
 }
+
+export * from "./forecast.js";

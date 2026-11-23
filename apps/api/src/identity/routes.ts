@@ -11,6 +11,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { Redis } from "ioredis";
 import { z } from "zod";
 import type { Config } from "../config.js";
+import { registerForecast } from "../planning/forecast-routes.js";
 import { registerPlanning } from "../planning/routes.js";
 import { IdentityError, parse, unavailable } from "./http.js";
 import { createSessionService, digest, opaqueToken } from "./session.js";
@@ -22,7 +23,10 @@ export function registerIdentity(
   app: FastifyInstance,
   config: Config,
   redis: Redis,
-  stores: Pick<ReturnType<typeof connectDatabase>, "identity" | "planning">,
+  stores: Pick<
+    ReturnType<typeof connectDatabase>,
+    "identity" | "planning" | "forecast"
+  >,
 ) {
   const session = createSessionService(config, redis);
   const db = stores.identity;
@@ -85,6 +89,7 @@ export function registerIdentity(
       }
 
       registerPlanning(api, stores.planning, requireActor);
+      registerForecast(api, stores.forecast, requireActor);
 
       api.post("/auth/login", async (request, reply) => {
         if (!config.auth) throw unavailable();

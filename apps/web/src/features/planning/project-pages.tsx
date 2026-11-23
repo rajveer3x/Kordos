@@ -34,6 +34,7 @@ import {
   usePlanning,
   type LiveProjectContext,
 } from "./planning-client";
+import { useForecast } from "./forecast-client";
 import { ProjectEditor } from "./project-settings";
 import "./planning.css";
 
@@ -223,10 +224,27 @@ export function PlanningOverview() {
   const { workspace } = usePlanning();
   const { project, details } = useLiveProject();
   const base = workspacePath(projectPath(project.id), workspace.id);
+  const { query } = useForecast(project.id, !!project.commitment);
+  const graph = denied(query.error) ? undefined : query.data;
+  const milestone = graph?.items.find(
+    ({ kind, status, commitment }) =>
+      kind === "milestone" &&
+      status !== "done" &&
+      commitment === project.commitment,
+  );
+  const forecast = graph?.forecast.find(({ id }) => id === milestone?.id);
   return (
     <>
       <title>{`${project.name} · Kordos`}</title>
-      <DateComparison project={project} />
+      <DateComparison
+        project={{ ...project, forecast: forecast?.finish ?? undefined }}
+      />
+      {forecast?.provisional && (
+        <p>
+          Forecast uncertain. See{" "}
+          <Link to={`${base}/graph`}>dependencies and forecast</Link>.
+        </p>
+      )}
       <section
         className="planning-panel glass-panel"
         aria-labelledby="project-work-summary"

@@ -1,8 +1,8 @@
 # Delivery tracker
 
-**Current state** — Features 01 through 04 are verified locally.
+**Current state** — Features 01 through 05 are verified locally.
 
-**Next ready feature** — [05 · Dependencies and forecasts](feature-specs/05-graph-and-forecasts.md). Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
+**Next ready feature** — [06 · Comments and presence](feature-specs/06-realtime-collaboration.md). Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
 
 | ID | Feature prompt | Depends on | State | Evidence |
 |---|---|---|---|---|
@@ -10,7 +10,7 @@
 | 02 | [Interface foundation](feature-specs/02-interface-foundation.md) | 01 | Done | Responsive, keyboard, zoom and contrast checks passed. See [Glass refresh evidence](#glass-refresh-evidence). |
 | 03 | [Identity and tenancy](feature-specs/03-identity-and-tenancy.md) | 01, 02 | Done | Invitation concurrency, workspace switching, revocation and runtime role isolation passed with the refreshed interface. See [Feature 03 evidence](#feature-03-evidence). |
 | 04 | [Projects and work items](feature-specs/04-projects-and-work.md) | 03 | Done | Board edits, private project isolation, archiving and attributed reopening passed. See [Feature 04 evidence](#feature-04-evidence). |
-| 05 | [Dependencies and forecasts](feature-specs/05-graph-and-forecasts.md) | 04 | Pending | — |
+| 05 | [Dependencies and forecasts](feature-specs/05-graph-and-forecasts.md) | 04 | Done | Forecast dates, slack, concurrent cycle rejection and private previews passed. See [Feature 05 evidence](#feature-05-evidence). |
 | 06 | [Comments and presence](feature-specs/06-realtime-collaboration.md) | 04 | Pending | — |
 | 07 | [Documents and decision register](feature-specs/07-documents-and-decisions.md) | 04, 06 | Pending | — |
 | 08 | [Approval engine and audit history](feature-specs/08-approvals-and-audit.md) | 04, 07 | Pending | — |
@@ -128,3 +128,19 @@ Verified on 2026-11-23 with Node 26.5.0, pnpm 10.34.9, Chromium, a local OIDC is
 | Work lifecycle and attribution | Completing then reopening a task recorded the actor and the transition from Done to Ready. Archiving removed work from the active project count and assigned work, while its stable detail URL and audit history remained available. Project archive filtering and reopening passed. |
 
 Workspace visibility grants read access to current and future workspace members. Editing and assignment require an eligible explicit project role. The overview uses the earliest committed date among open milestones. Feature 04 has passed all local acceptance checks. Feature 05 is next, and Feature 06 also has its prerequisites met.
+
+## Feature 05 evidence
+
+Verified on 2026-11-23 with Node 26.5.0, pnpm 10.34.9, Chromium, a local OIDC issuer and an isolated Docker Compose stack.
+
+| Check | Result |
+|---|---|
+| `pnpm install --frozen-lockfile --offline`, `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm build`, `git diff --check` | Passed. Vitest passed eight tests, including five forecast tests. The build emitted the existing Zod annotation warnings. |
+| `pnpm db:migrate` twice and `pnpm db:generate` | Fresh and repeat migrations passed. An upgrade from Feature 04 preserved project visibility, calendar settings, and work revisions under the runtime role. PostgreSQL rejected a cross-project edge through its composite foreign key. Drizzle reported no schema changes. |
+| `pnpm test:e2e --workers=3 --trace=on` | All 12 Chromium tests passed. The [Feature 05 browser test](../tests/e2e/dependencies-and-forecasts.spec.ts) checked the canvas, keyboard-operated list, affected owners, and reflow at 1440, 1024, 390 and 320 CSS px. |
+| Calendar, slack and uncertainty | Against a Monday commitment, Friday handoff plus two full QA days forecast Wednesday morning. Thursday handoff forecast Tuesday morning. A slip inside the parallel branch's slack kept the milestone forecast in place. Missing effort made the downstream path uncertain. Fixtures covered an actual completion across a timezone boundary and an explicit holiday. |
+| Concurrency and private previews | Two opposite edge requests produced one edge and one cycle response with its path. A retry returned the original result with one audit and outbox event. Scenario retries returned the same preview, stale inputs returned 409, and a project collaborator could neither fetch nor discard another member's scenario. Closing and resetting a preview preserved the saved graph and commitment. Project revocation cleared the graph on refresh. |
+
+Open work uses remaining workday estimates. Missing estimates reserve one provisional workday and flag downstream dates as uncertain. Slack uses the earlier of the milestone forecast and commitment. Closing a scenario returns to the baseline and keeps the private preview available at its URL. Resetting deletes the preview. The approval workflow can use the versioned scenario payload in a later feature.
+
+All local Feature 05 acceptance checks passed. Feature 06 is ready.

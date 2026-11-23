@@ -1,8 +1,8 @@
 import type { WorkspaceSummary } from "@kordos/contracts";
 import { ArrowRight } from "lucide-react";
-import { useContext, type ReactNode } from "react";
+import { lazy, Suspense, useContext, type ReactNode } from "react";
 import { Link, Navigate, Route, Routes, useParams } from "react-router";
-import { PageHeading } from "./components/ui";
+import { AsyncState, PageHeading } from "./components/ui";
 import { PlanningScope } from "./features/planning/planning-client";
 import {
   PlanningOverview,
@@ -25,9 +25,12 @@ import {
   type Workspace,
   type WorkspaceDestination,
 } from "./features/workspace/workspace-model";
+
 import { WorkspaceShell } from "./features/workspace/workspace-shell";
 import "./styles.css";
 import "./features/workspace/workspace.css";
+
+const ProjectGraph = lazy(() => import("./features/planning/project-graph"));
 
 function WorkspacePage({
   destination,
@@ -114,6 +117,21 @@ export function WorkspaceRoutes({
           />
           {live && (
             <>
+              <Route
+                path="graph"
+                element={
+                  <Suspense
+                    fallback={
+                      <AsyncState
+                        kind="loading"
+                        message="Loading dependency graph…"
+                      />
+                    }
+                  >
+                    <ProjectGraph />
+                  </Suspense>
+                }
+              />
               <Route path="settings" element={<ProjectSettings />} />
               <Route path="work" element={<WorkViews />}>
                 <Route path="new" element={<WorkInspector create />} />
@@ -122,7 +140,11 @@ export function WorkspaceRoutes({
             </>
           )}
           {projectDestinations
-            .filter(({ id }) => id !== "overview" && (!live || id !== "work"))
+            .filter(
+              ({ id }) =>
+                id !== "overview" &&
+                (!live || (id !== "work" && id !== "graph")),
+            )
             .map((destination) => (
               <Route key={destination.id} path={destination.id}>
                 <Route

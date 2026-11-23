@@ -1,0 +1,196 @@
+.forecast-panel {
+  --forecast-path: #2254a6;
+  overflow-wrap: anywhere;
+  margin-block-start: var(--space-4);
+}
+
+.forecast-panel h2,
+.forecast-panel h3,
+.forecast-panel p,
+.forecast-values {
+  margin: 0;
+}
+
+.forecast-panel button[aria-pressed="true"] {
+  background: var(--accent-surface);
+  border-color: var(--action);
+  color: var(--action);
+}
+
+.forecast-milestones {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: var(--space-3);
+}
+
+.forecast-milestone,
+.forecast-inspector,
+.forecast-preview-status,
+.forecast-impact,
+.forecast-error {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+}
+
+.forecast-preview-status,
+.forecast-impact {
+  border-inline-start: 3px solid var(--forecast-path);
+}
+
+.forecast-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+
+.forecast-values dt,
+.forecast-list span,
+.forecast-note {
+  font-size: 0.875rem;
+  color: var(--secondary);
+}
+
+.forecast-values dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.forecast-values code {
+  font-size: 0.8125rem;
+}
+
+.forecast-canvas {
+  position: relative;
+  height: clamp(300px, 52vh, 500px);
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+  background-color: var(--surface);
+}
+
+.forecast-canvas .react-flow__controls-button {
+  width: 44px;
+  height: 44px;
+}
+
+.forecast-node {
+  display: grid;
+  gap: var(--space-1);
+  width: 218px;
+  padding: var(--space-3);
+  border: 1px solid var(--control-outline);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.forecast-node strong {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.forecast-node span {
+  color: var(--secondary);
+}
+
+.forecast-node[data-affected="true"] {
+  border: 2px dashed var(--forecast-path);
+}
+
+.react-flow__node.selected .forecast-node {
+  outline: 2px solid var(--action);
+  outline-offset: 2px;
+}
+
+.forecast-form,
+.forecast-list {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.forecast-list,
+.forecast-cycle {
+  margin-block: 0;
+  padding-inline-start: var(--space-4);
+}
+
+.forecast-list li {
+  border-block-end: 1px solid var(--hairline);
+  padding: var(--space-2);
+}
+
+.forecast-list li[data-affected="true"] {
+  border-inline-start: 2px dashed var(--forecast-path);
+}
+
+.forecast-list li span {
+  margin-inline-end: var(--space-3);
+}
+
+.forecast-select {
+  display: block;
+  min-height: 44px;
+  padding: var(--space-1);
+  border: 0;
+  border-radius: var(--radius-control);
+  color: var(--action);
+  background: transparent;
+  text-align: start;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.forecast-adjustment {
+  min-inline-size: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+}
+
+.forecast-adjustment legend {
+  padding-inline: var(--space-1);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.forecast-panel summary {
+  width: fit-content;
+  padding-block: var(--space-2);
+  color: var(--action);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.forecast-inputs p {
+  margin-block-start: var(--space-2);
+}
+
+.forecast-dependencies {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.forecast-dependencies li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  justify-content: space-between;
+  padding: var(--space-2) 0;
+  border-block-end: 1px solid var(--hairline);
+}

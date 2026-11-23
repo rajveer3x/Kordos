@@ -14,7 +14,7 @@ export class ApiError extends Error {
 export async function request<T = void>(
   path: string,
   options: {
-    method?: "GET" | "POST" | "PATCH";
+    method?: "GET" | "POST" | "PATCH" | "DELETE";
     body?: unknown;
     schema?: ZodType<T>;
     signal?: AbortSignal;

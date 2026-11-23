@@ -3,6 +3,7 @@ import { asc, eq, isNull, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { z } from "zod";
+import { forecastStore } from "./forecast.js";
 import { identityStore } from "./identity.js";
 import { planningStore } from "./planning.js";
 import { foundationJobEffects, foundationJobs } from "./schema.js";
@@ -49,9 +50,11 @@ export function connectDatabase(url: string) {
   return {
     identity: identityStore(client),
     planning: planningStore(client),
+    forecast: forecastStore(client),
     async checkReady() {
       await db.execute(sql`
-        SELECT 1 FROM ${foundationJobs}, ${foundationJobEffects}, public.workspaces, public.work_items LIMIT 0
+        SELECT 1 FROM ${foundationJobs}, ${foundationJobEffects}, public.workspaces, public.work_items,
+          public.dependency_edges, public.scenarios LIMIT 0
       `);
     },
     async createJob(id: string) {

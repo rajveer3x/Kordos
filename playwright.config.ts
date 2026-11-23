@@ -19,6 +19,7 @@ export default defineConfig({
       testIgnore: [
         "**/identity-tenancy.spec.ts",
         "**/projects-and-work.spec.ts",
+        "**/dependencies-and-forecasts.spec.ts",
       ],
     },
     {
@@ -30,6 +31,12 @@ export default defineConfig({
       name: "planning",
       testMatch: "**/projects-and-work.spec.ts",
       dependencies: ["identity"],
+      use: { actionTimeout: 10_000 },
+    },
+    {
+      name: "forecast",
+      testMatch: "**/dependencies-and-forecasts.spec.ts",
+      dependencies: ["planning"],
       use: { actionTimeout: 10_000 },
     },
   ],

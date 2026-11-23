@@ -13,6 +13,7 @@
     "@fontsource/ibm-plex-mono": "5.3.0",
     "@kordos/contracts": "workspace:*",
     "@tanstack/react-query": "5.108.2",
+    "@xyflow/react": "13.0.2",
     "lucide-react": "1.77.0",
     "react": "19.1.10",
     "react-dom": "19.1.10",

@@ -148,6 +148,7 @@ export const projects = pgTable(
       .default(sql`'{}'::date[]`),
     version: integer().notNull().default(1),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
+    graphVersion: integer("graph_version").notNull().default(1),
   },
   (table) => [
     index().on(table.workspaceId, table.name),
@@ -335,5 +336,84 @@ export const outbox = pgTable(
     index("outbox_pending_idx")
       .on(table.createdAt, table.id)
       .where(sql`${table.deliveredAt} IS NULL`),
+  ],
+);
+
+export const dependencyEdges = pgTable(
+  "dependency_edges",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    predecessorId: uuid("predecessor_id").notNull(),
+    successorId: uuid("successor_id").notNull(),
+  },
+  (table) => [
+    unique("dependency_edges_pair").on(
+      table.workspaceId,
+      table.projectId,
+      table.predecessorId,
+      table.successorId,
+    ),
+    index("dependency_edges_incoming_idx").on(
+      table.workspaceId,
+      table.projectId,
+      table.successorId,
+    ),
+    foreignKey({
+      name: "dependency_edges_predecessor_fk",
+      columns: [table.workspaceId, table.projectId, table.predecessorId],
+      foreignColumns: [
+        workItems.workspaceId,
+        workItems.projectId,
+        workItems.id,
+      ],
+    }),
+    foreignKey({
+      name: "dependency_edges_successor_fk",
+      columns: [table.workspaceId, table.projectId, table.successorId],
+      foreignColumns: [
+        workItems.workspaceId,
+        workItems.projectId,
+        workItems.id,
+      ],
+    }),
+    check(
+      "dependency_edges_distinct_items",
+      sql`${table.predecessorId} <> ${table.successorId}`,
+    ),
+  ],
+);
+
+export const scenarios = pgTable(
+  "scenarios",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    actorId: uuid("actor_id").notNull(),
+    mutationId: uuid("mutation_id").notNull(),
+    request: jsonb().notNull(),
+    comparison: jsonb().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("scenarios_actor_mutation").on(
+      table.workspaceId,
+      table.actorId,
+      table.mutationId,
+    ),
+    foreignKey({
+      name: "scenarios_project_fk",
+      columns: [table.workspaceId, table.projectId],
+      foreignColumns: [projects.workspaceId, projects.id],
+    }),
+    foreignKey({
+      name: "scenarios_actor_fk",
+      columns: [table.workspaceId, table.actorId],
+      foreignColumns: [memberships.workspaceId, memberships.userId],
+    }),
   ],
 );

@@ -36,7 +36,7 @@ const dateFormat = new Intl.DateTimeFormat("en", {
   timeZone: "UTC",
 });
 
-function ProjectDate({ date }: { date?: string }) {
+export function ProjectDate({ date }: { date?: string }) {
   return date ? (
     <time dateTime={date}>{dateFormat.format(new Date(date))}</time>
   ) : (

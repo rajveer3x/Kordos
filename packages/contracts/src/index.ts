@@ -44,3 +44,5 @@ export type FoundationJobEffect = z.infer<typeof foundationJobEffectSchema>;
 export * from "./identity.js";
 
 export * from "./planning.js";
+
+export * from "./forecast.js";
