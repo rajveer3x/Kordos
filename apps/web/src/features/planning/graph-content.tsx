@@ -8,6 +8,7 @@ import { Link } from "react-router";
 import { StatusLabel } from "../../components/ui";
 import { ProjectDate } from "../workspace/project-view";
 import { DependencyCanvas, edgeKey } from "./dependency-canvas";
+import { graphRowId } from "./graph-navigation";
 
 function ForecastDate({ forecast }: { forecast: NodeForecast }) {
   return (
@@ -46,6 +47,7 @@ export function GraphContent({
   view,
   onSelect,
   workPath,
+  returnSearch,
 }: {
   graph: ProjectGraph;
   scenario: Scenario | undefined;
@@ -53,6 +55,7 @@ export function GraphContent({
   view: "canvas" | "list";
   onSelect: (id: string) => void;
   workPath: (id: string) => string;
+  returnSearch: string;
 }) {
   const items = new Map(graph.items.map((item) => [item.id, item]));
   const forecast = scenario?.forecast ?? graph.forecast;
@@ -70,6 +73,9 @@ export function GraphContent({
   const milestones = forecast.filter(
     ({ id }) => items.get(id)?.kind === "milestone",
   );
+  const returnState = (row: "impact" | "selection", itemId: string) => ({
+    graphReturn: { search: returnSearch, itemId, row },
+  });
 
   return (
     <>
@@ -144,7 +150,13 @@ export function GraphContent({
                 );
                 return (
                   <li key={node.id}>
-                    <Link to={workPath(node.id)}>{item.title}</Link>
+                    <Link
+                      to={workPath(node.id)}
+                      id={graphRowId("impact", node.id)}
+                      state={returnState("impact", node.id)}
+                    >
+                      {item.title}
+                    </Link>
                     <span>{item.owner?.name ?? "Unassigned"}</span>
                     <span>
                       <ForecastDate forecast={baseline.get(node.id)!} /> →{" "}
@@ -193,6 +205,7 @@ export function GraphContent({
                 <span>
                   <ForecastDate forecast={node} />
                 </span>
+                {affected.has(node.id) && <span>Affected</span>}
                 {parents.length > 0 && (
                   <span>
                     After {parents.map((id) => items.get(id)!.title).join(", ")}
@@ -210,7 +223,13 @@ export function GraphContent({
           aria-live="polite"
         >
           <h3>
-            <Link to={workPath(selectedItem.id)}>{selectedItem.title}</Link>
+            <Link
+              to={workPath(selectedItem.id)}
+              id={graphRowId("selection", selectedItem.id)}
+              state={returnState("selection", selectedItem.id)}
+            >
+              {selectedItem.title}
+            </Link>
           </h3>
           <dl className="forecast-values">
             <div>

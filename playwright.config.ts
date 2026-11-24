@@ -43,6 +43,7 @@ export default defineConfig({
         "**/health-and-duplicates.spec.ts",
         "**/workspace-activity.spec.ts",
         "**/retention-and-access.spec.ts",
+        "**/accessibility-and-visual-qa.spec.ts",
       ],
     },
     {
@@ -145,6 +146,11 @@ export default defineConfig({
       testMatch: "**/retention-and-access.spec.ts",
       dependencies: ["workspace-activity"],
       use: { actionTimeout: 10_000 },
+    },
+    {
+      name: "accessibility",
+      testMatch: "**/accessibility-and-visual-qa.spec.ts",
+      dependencies: ["retention"],
     },
   ],
   webServer: {

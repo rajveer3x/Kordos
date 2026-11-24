@@ -1,7 +1,7 @@
 import { idSchema, scenarioSchema } from "@kordos/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router";
+import { useLocation, useSearchParams } from "react-router";
 import { AsyncState, Button } from "../../components/ui";
 import { denied, errorMessage, read, request } from "../identity/api";
 import { ProjectDate } from "../workspace/project-view";
@@ -15,11 +15,13 @@ import {
   usePlanning,
 } from "./planning-client";
 import { GraphContent } from "./graph-content";
+import { graphReturnSchema, graphRowId } from "./graph-navigation";
 import "./forecast.css";
 
 export default function ProjectGraphPage() {
   const { project, details } = useLiveProject();
   const { workspace } = usePlanning();
+  const location = useLocation();
   const [params, setParams] = useSearchParams();
   const scenarioId = idSchema.safeParse(params.get("scenario")).data;
   const selection = idSchema.safeParse(params.get("focus")).data;
@@ -39,6 +41,22 @@ export default function ProjectGraphPage() {
   const focusPreview = useRef<string>(null);
   const graphHeading = useRef<HTMLHeadingElement>(null);
   const scenarioHeading = useRef<HTMLHeadingElement>(null);
+  const focusedReturn = useRef<string>(null);
+
+  useEffect(() => {
+    const target = graphReturnSchema.safeParse(location.state?.graphFocus).data;
+    if (!target || !query.data || focusedReturn.current === location.key)
+      return;
+    if (target.row === "impact" && saved.isPending) return;
+    const frame = requestAnimationFrame(() => {
+      const link = document.getElementById(
+        graphRowId(target.row, target.itemId),
+      );
+      (link ?? graphHeading.current)?.focus();
+      focusedReturn.current = location.key;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [location.key, location.state, query.data, saved.isPending]);
 
   useEffect(() => {
     if (!scenarioId || focusPreview.current !== scenarioId) return;
@@ -188,6 +206,7 @@ export default function ProjectGraphPage() {
             graph={graph}
             scenario={current}
             {...{ view, selection, workPath }}
+            returnSearch={location.search}
             onSelect={(id) => setParam("focus", id)}
           />
         )}

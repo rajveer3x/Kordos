@@ -41,7 +41,11 @@ export function usePlanningCommand() {
   const pending = useRef(false);
   const lastRequest = useRef<{ signature: string; id: string }>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<{ message: string; current?: unknown }>();
+  const [error, setError] = useState<{
+    message: string;
+    status?: number;
+    current?: unknown;
+  }>();
   const [notice, setNotice] = useState("");
   async function save(
     path: string,
@@ -78,6 +82,7 @@ export function usePlanningCommand() {
     } catch (failure) {
       setError({
         message: errorMessage(failure),
+        status: failure instanceof ApiError ? failure.status : undefined,
         current: failure instanceof ApiError ? failure.current : undefined,
       });
     } finally {

@@ -206,7 +206,8 @@ button {
   padding: var(--space-2);
   color: var(--secondary);
 }
-.button:disabled {
+.button:disabled,
+.button[aria-disabled="true"] {
   box-shadow: none;
   border-color: var(--control-outline);
   background: var(--inset);

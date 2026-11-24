@@ -10,7 +10,7 @@ import {
   type WorkFields,
 } from "@kordos/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import {
   AsyncState,
@@ -267,6 +267,7 @@ export function ReviewPage() {
           proposal={result.data}
           path={path}
           head={head}
+          refresh={result.refetch}
         />
       )}
     </div>
@@ -277,14 +278,17 @@ function ReviewDetails({
   proposal,
   path,
   head,
+  refresh,
 }: {
   proposal: ProposalDetail;
   path: string;
   head: string;
+  refresh: () => unknown;
 }) {
   const { workspace } = usePlanning();
   const command = usePlanningCommand();
   const status = useRef<HTMLDivElement>(null);
+  const actionError = useRef<HTMLParagraphElement>(null);
   const [editor, setEditor] = useState<ProposalDetail>();
   const [decision, setDecision] = useState<"request-edit" | "reject">();
   const [reason, setReason] = useState("");
@@ -314,6 +318,12 @@ function ReviewDetails({
     proposal.kind !== "github" &&
     proposal.currentTargetVersion !== proposal.targetVersion &&
     ["draft", "pending"].includes(proposal.status);
+
+  useEffect(() => {
+    if (command.error?.status !== 409) return;
+    actionError.current?.focus();
+    void refresh();
+  }, [command.error, refresh]);
 
   function review(action: "submit" | "approve" | "request-edit" | "reject") {
     void command.save(
@@ -787,6 +797,16 @@ function ReviewDetails({
             </div>
           </form>
         )}
+        {command.error && (
+          <p
+            className="planning-error"
+            role="alert"
+            ref={actionError}
+            tabIndex={-1}
+          >
+            {command.error.message}
+          </p>
+        )}
         {!decision &&
           !editor &&
           (proposal.canSubmit || proposal.canReview || proposal.canEdit) && (
@@ -804,7 +824,7 @@ function ReviewDetails({
               )}
               {proposal.canReview && !targetChanged && (
                 <Button
-                  disabled={command.busy}
+                  aria-disabled={command.busy || undefined}
                   onClick={() => review("approve")}
                 >
                   {consolidation
@@ -858,11 +878,6 @@ function ReviewDetails({
               )}
             </div>
           )}
-        {command.error && (
-          <p className="planning-error" role="alert">
-            {command.error.message}
-          </p>
-        )}
         <p className="planning-notice" role="status">
           {command.notice}
         </p>

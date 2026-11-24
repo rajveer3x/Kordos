@@ -79,12 +79,12 @@ export function DependencyEditor({
           </label>
         </div>
         <div>
-          <Button type="submit" disabled={command.busy}>
+          <Button type="submit" aria-disabled={command.busy || undefined}>
             Add dependency
           </Button>
         </div>
       </form>
-      <div aria-live="polite">{command.notice}</div>
+      <div role="status">{command.notice}</div>
       {command.error && (
         <div role="alert" className="forecast-error">
           <p>{command.error.message}</p>

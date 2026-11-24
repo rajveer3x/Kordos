@@ -6,7 +6,7 @@ import {
   type WorkItem,
 } from "@kordos/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useLayoutEffect, useRef, useState } from "react";
 import {
   Link,
   useLocation,
@@ -28,6 +28,7 @@ import {
 } from "./planning-client";
 import { WorkEditor, workLabels } from "./work-editor";
 import type { WorkOutlet } from "./work-views";
+import { graphReturnSchema } from "./graph-navigation";
 
 const WorkBriefOrigin = lazy(() => import("../briefs/work-origin"));
 
@@ -36,7 +37,7 @@ export function WorkInspector({ create = false }: { create?: boolean }) {
   const { details, workUrl, opener } = useOutletContext<WorkOutlet>();
   const { api, key, workspace } = usePlanning();
   const activityReturn = useActivityReturn(workspace.id);
-  const { search } = useLocation();
+  const { search, state } = useLocation();
   const navigate = useNavigate();
   const path = `${api}/projects/${details.id}/work`;
   const canEdit = details.role !== "viewer" && !details.archived;
@@ -53,8 +54,23 @@ export function WorkInspector({ create = false }: { create?: boolean }) {
     enabled: canEdit,
     ...planningRefresh,
   });
-  const close = () =>
-    navigate(activityReturn ?? workUrl + search, { replace: true });
+  const close = () => {
+    const graph = graphReturnSchema.safeParse(state?.graphReturn).data;
+    if (graph) {
+      navigate(
+        {
+          pathname: workspacePath(
+            projectPath(details.id, "graph"),
+            workspace.id,
+          ),
+          search: graph.search,
+        },
+        { replace: true, state: { graphFocus: graph } },
+      );
+    } else {
+      navigate(activityReturn ?? workUrl + search, { replace: true });
+    }
+  };
   const itemTitle = denied(item.error) ? undefined : item.data?.title;
   const title = create ? "Create work item" : (itemTitle ?? "Work item");
   return (
@@ -141,6 +157,15 @@ function WorkDetails({
   const navigate = useNavigate();
   const [notice, setNotice] = useState("");
   const command = usePlanningCommand();
+  const editAction = useRef<HTMLButtonElement>(null);
+  const proposeAction = useRef<HTMLButtonElement>(null);
+  const restoreFocus = useRef<typeof editAction>(null);
+
+  useLayoutEffect(() => {
+    if (editing || proposing || !restoreFocus.current) return;
+    restoreFocus.current.current?.focus();
+    restoreFocus.current = null;
+  }, [editing, proposing]);
 
   function lifecycle(
     action: "archive" | "restore" | "reopen",
@@ -183,6 +208,7 @@ function WorkDetails({
           owners={owners}
           lead
           canSave={!item.archived}
+          focusTitle
           proposal={{}}
           onSaved={(id) =>
             navigate(workspacePath(`/reviews/${id}`, workspace.id))
@@ -196,6 +222,7 @@ function WorkDetails({
           owners={owners}
           lead={lead}
           canSave={!item.archived}
+          focusTitle
           onSaved={() => {
             setEditing(undefined);
             setNotice("Work item saved.");
@@ -262,7 +289,9 @@ function WorkDetails({
                 <>
                   <Button
                     variant="secondary"
+                    ref={editAction}
                     onClick={() => {
+                      restoreFocus.current = editAction;
                       setNotice("");
                       setEditing(item);
                     }}
@@ -271,7 +300,11 @@ function WorkDetails({
                   </Button>
                   <Button
                     variant="secondary"
-                    onClick={() => setProposing(item)}
+                    ref={proposeAction}
+                    onClick={() => {
+                      restoreFocus.current = proposeAction;
+                      setProposing(item);
+                    }}
                   >
                     Propose change
                   </Button>

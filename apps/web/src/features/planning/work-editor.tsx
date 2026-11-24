@@ -7,7 +7,7 @@ import {
   type WorkFields,
   type WorkItem,
 } from "@kordos/contracts";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Button } from "../../components/ui";
 import { citationFromLink } from "../knowledge/knowledge-client";
 import {
@@ -136,6 +136,7 @@ export function WorkEditor({
   onCancel,
   canSave,
   proposal,
+  focusTitle = false,
 }: {
   path: string;
   item?: WorkItem;
@@ -144,6 +145,7 @@ export function WorkEditor({
   onSaved: (id: string) => void;
   onCancel: () => void;
   canSave: boolean;
+  focusTitle?: boolean;
   proposal?: {
     initial?: WorkFields;
     evidenceLinks?: string[];
@@ -151,6 +153,7 @@ export function WorkEditor({
   };
 }) {
   const command = usePlanningCommand();
+  const evidenceHelp = useId();
   const { workspace } = usePlanning();
   const [base, setBase] = useState(item);
   const [draft, setDraft] = useState(() =>
@@ -176,7 +179,7 @@ export function WorkEditor({
       className="planning-form"
       onSubmit={(event) => {
         event.preventDefault();
-        if (!canSave || current) return;
+        if (!canSave || current || command.busy) return;
         const input = {
           ...draft,
           description: draft.description || null,
@@ -253,6 +256,7 @@ export function WorkEditor({
       <label>
         Title
         <input
+          autoFocus={focusTitle}
           required
           maxLength={180}
           value={draft.title}
@@ -372,11 +376,11 @@ export function WorkEditor({
           Evidence links (optional)
           <textarea
             rows={3}
-            aria-describedby="proposal-evidence-help"
+            aria-describedby={evidenceHelp}
             value={evidenceLinks}
             onChange={(event) => setEvidenceLinks(event.target.value)}
           />
-          <span id="proposal-evidence-help" className="planning-help">
+          <span id={evidenceHelp} className="planning-help">
             Paste a link to a document passage or comment, one per line.
           </span>
         </label>
@@ -413,7 +417,11 @@ export function WorkEditor({
         </div>
       )}
       <div className="planning-actions">
-        <Button type="submit" disabled={!canSave || command.busy || !!current}>
+        <Button
+          type="submit"
+          disabled={!canSave || !!current}
+          aria-disabled={command.busy || undefined}
+        >
           {proposal
             ? "Save proposal draft"
             : item

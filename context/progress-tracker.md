@@ -1,8 +1,8 @@
 # Delivery tracker
 
-**Current state** — Features 01 through 20 are verified locally.
+**Current state** — Features 01 through 21 are verified locally.
 
-**Next ready feature** — [21 · Accessibility and visual verification](feature-specs/21-accessibility-and-visual-qa.md). Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
+**Next ready feature** — [22 · Full release evidence](feature-specs/22-release-evidence.md). Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
 
 | ID | Feature prompt | Depends on | State | Evidence |
 |---|---|---|---|---|
@@ -26,7 +26,7 @@
 | 18 | [Workspace home and activity history](feature-specs/18-workspace-home-and-activity.md) | 10, 11, 12, 14, 17 | Done | Scoped priorities, matching review and audit identifiers, and mobile activity return passed. See [Feature 18 evidence](#feature-18-evidence). |
 | 19 | [Retention and access lifecycle](feature-specs/19-privacy-and-retention.md) | 13, 15, 16, 17, 18 | Done | Open evidence revocation, interrupted deletion recovery and redacted audit attribution passed. See [Feature 19 evidence](#feature-19-evidence). |
 | 20 | [Deployment and recovery](feature-specs/20-operability-and-delivery.md) | 12, 14, 15, 19 | Done | The local restore, worker crash and model outage checks passed. See [Feature 20 evidence](#feature-20-evidence). |
-| 21 | [Accessibility and visual verification](feature-specs/21-accessibility-and-visual-qa.md) | 18, 19 | Pending | — |
+| 21 | [Accessibility and visual verification](feature-specs/21-accessibility-and-visual-qa.md) | 18, 19 | Done | Keyboard edit and recovery, four viewport widths and 200% zoom passed. See [Feature 21 evidence](#feature-21-evidence). |
 | 22 | [Full release evidence](feature-specs/22-release-evidence.md) | 16, 17, 18, 19, 20, 21 | Pending | — |
 
 **Groq provider update** — Done for Features 09, 11 and 16. Synthetic requests passed against live Groq. See [verification](#groq-provider-verification).
@@ -407,6 +407,31 @@ Verified locally on 2026-11-24 with Node 26.5.0, pnpm 10.34.9, Chromium, loopbac
 The [deployment and recovery runbook](../infra/deploy/README.md) documents rollout, rollback, credential recovery, scoped event replay and 30-day backup and noncurrent object retention settings. Managed WAL/PITR, backup lifecycle enforcement, recovery of production secrets, production TLS, production-scale restore, post-backup revocation replay and live provider reconciliation remain unexercised. No staging or production deployment took place.
 
 All local Feature 20 acceptance checks passed. Feature 21 is ready.
+
+The accessibility run found a Redis adapter startup race. Commit `5293e0d` prevents the Pub/Sub subscriptions from inheriting a command timeout. Six restarts against running Redis and the local recovery rehearsal passed after the correction.
+
+## Feature 21 evidence
+
+Verified on 2026-11-24 with macOS Chromium, loopback OIDC and model fixtures, and isolated PostgreSQL, Redis and S3-compatible storage. All screenshots use a synthetic workspace.
+
+| Check | Result |
+|---|---|
+| `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm build`, `git diff --check` | Passed, including all 21 Vitest tests. The build reported the existing Zod annotation and Vite entry-chunk warnings. |
+| `pnpm test:e2e --project=foundation --project=accessibility --no-deps --workers=1 --trace=on --output=test-results/feature-21-final` | All 10 tests passed, including the [signed-in accessibility journey](../tests/e2e/accessibility-and-visual-qa.spec.ts). Primary controls remained reachable at 1440, 1024, 390 and 320 CSS px. Real 200% browser zoom yielded a 320 CSS px viewport for the signed-in review, forecast, search and transcript. Long source text wrapped inside its panel. |
+| `pnpm test:e2e --project=foundation --project=planning --project=forecast --project=reviews --project=meetings --project=search --project=workspace-activity --no-deps --workers=1 --trace=on --output=test-results/feature-21-regression` | All 15 tests passed. The final foundation and accessibility run also passed after adjusting the skip link and conflict alert placement. |
+| Keyboard and submission states | A keyboard task edit preserved its draft and Save focus after HTTP 503. Retrying saved the task and restored focus to Edit. Escape returned focus to its task row. Native keyboard selection added a dependency from the ordered list. Opening a milestone from the impact list and dismissing its details restored the scenario URL and originating link. A keyboard search opened its evidence and an unavailable citation showed an alert. A real approval version conflict focused the error and the next Tab reached **Review latest changes**. |
+| Contrast and preferences | Minimum checked ratios were 5.21:1 for secondary text, 5.72:1 for the primary action, 6.15:1 for status text, 5.77:1 for focus and 3.10:1 for control outlines on the checked surfaces. Commitment, forecast, scenario impact and pending review each had explicit labels. Chromium emulation confirmed the reduced-motion transition and opaque rail with reduced transparency. |
+| `pnpm test:recovery --output=test-results/feature-21-recovery-regression` | Passed after the Socket.IO startup correction. |
+
+| View | Viewport | Verified task |
+|---|---|---|
+| Home | 1440 px | Compare the [empty workspace](evidence/feature-21/home-empty-1440.png) with [assigned work and pending reviews](evidence/feature-21/home-populated-1440.png). |
+| Forecast | 1024 px | Compare the dates and return to the [focused milestone row](evidence/feature-21/forecast-impact-1024.png). |
+| Search and evidence | 320 px | Read a [long source result](evidence/feature-21/search-long-source-320.png) and recover from an [unavailable citation](evidence/feature-21/evidence-unavailable-320.png). |
+| Meeting | 390 px | Read speaker-attributed and unbroken [transcript passages](evidence/feature-21/meeting-transcript-390.png). |
+| Review | 390 px and 200% browser zoom | Recover from a [version conflict](evidence/feature-21/approval-conflict-390.png) and reach [approval actions at 200%](evidence/feature-21/pending-review-200-percent.png). |
+
+All Feature 21 acceptance checks passed locally. The verification used Chromium keyboard input and accessibility roles. Cross-browser and dedicated screen-reader sessions were unexercised. Feature 22 is ready.
 
 
 ## Groq provider verification

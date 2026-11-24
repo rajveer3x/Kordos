@@ -103,6 +103,7 @@ export function DependencyCanvas({
       className="forecast-canvas"
       role="region"
       aria-label="Dependency canvas"
+      aria-description="Use Ordered list to select work in dependency order with the keyboard."
     >
       <ReactFlow
         nodes={nodes}
