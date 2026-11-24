@@ -44,7 +44,8 @@ export function attachCollaboration(
   const pubSubOptions = {
     enableOfflineQueue: true,
     maxRetriesPerRequest: null,
-    commandTimeout: 0,
+    // Pub/Sub subscription commands must not inherit the request timeout.
+    commandTimeout: undefined,
   };
   const publisher = redis.duplicate(pubSubOptions);
   const subscriber = redis.duplicate(pubSubOptions);
