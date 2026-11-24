@@ -31,6 +31,7 @@ import { WorkspaceShell } from "./features/workspace/workspace-shell";
 import "./styles.css";
 import "./features/workspace/workspace.css";
 
+const SearchPage = lazy(() => import("./features/search/search-page"));
 const ProjectGraph = lazy(() => import("./features/planning/project-graph"));
 const ProjectKnowledge = lazy(() => import("./features/knowledge/routes"));
 const MeetingsPage = lazy(() =>
@@ -150,6 +151,10 @@ export function WorkspaceRoutes({
                 settings
               ) : live && destination.id === "home" ? (
                 <AssignedWork />
+              ) : live && destination.id === "search" ? (
+                <LazyPage>
+                  <SearchPage projects={workspace.projects} />
+                </LazyPage>
               ) : live && destination.id === "inbox" ? (
                 <InboxPage />
               ) : live && destination.id === "projects" ? (

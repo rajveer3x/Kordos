@@ -99,6 +99,13 @@
       "when": 1795455365915,
       "tag": "0013_calendar_and_gmail",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1795457020148,
+      "tag": "0014_hybrid_search",
+      "breakpoints": true
     }
   ]
 }

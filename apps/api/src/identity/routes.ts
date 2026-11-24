@@ -24,6 +24,7 @@ import { registerBriefs } from "../briefs/routes.js";
 import { registerMeetings } from "../meetings/routes.js";
 import { registerRisks } from "../risks/routes.js";
 import { registerReviews } from "../reviews/routes.js";
+import { registerSearch } from "../search/routes.js";
 import { IdentityError, parse, unavailable } from "./http.js";
 import { createSessionService, digest, opaqueToken } from "./session.js";
 
@@ -47,6 +48,7 @@ export function registerIdentity(
     | "reviews"
     | "risks"
     | "briefs"
+    | "search"
   >,
   storage: S3Client,
 ) {
@@ -119,6 +121,7 @@ export function registerIdentity(
 
       registerPlanning(api, stores.planning, requireActor);
       registerInbox(api, stores.inbox, requireActor);
+      registerSearch(api, stores.search, requireActor, config);
       registerConnectors(api, stores.connectors, requireActor, {
         key: config.CONNECTOR_FIXTURE_URL
           ? config.CONNECTOR_TOKEN_KEY

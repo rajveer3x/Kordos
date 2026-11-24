@@ -7,6 +7,7 @@ import {
   githubBindingsSchema,
   googleEndpoints,
   googleOAuthEnv,
+  searchModelEnv,
 } from "@kordos/contracts";
 import { z } from "zod";
 
@@ -25,6 +26,8 @@ const configSchema = z.object({
   STORAGE_ACCESS_KEY_ID: z.string().trim().min(1),
   STORAGE_SECRET_ACCESS_KEY: z.string().trim().min(1),
   ...googleOAuthEnv,
+  ...searchModelEnv,
+  OPENAI_SEARCH_ANSWER_MODEL: z.string().min(1).max(120).optional(),
   GOOGLE_FIXTURE_URL: fixtureEndpointSchema.optional(),
   CONNECTOR_TOKEN_KEY: connectorKeySchema.optional(),
   CONNECTOR_FIXTURE_URL: fixtureEndpointSchema.optional(),

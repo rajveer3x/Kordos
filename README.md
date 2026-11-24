@@ -122,3 +122,13 @@ An administrator who leads the destination project can authorize Calendar or Gma
 Google sync commits the cursor after the complete batch. An expired Calendar sync token or Gmail history ID triggers a rescan of that connection’s selected scope. Each run has a 55-second provider budget and a 30-page limit, with up to 5,000 Calendar events or 1,000 Gmail message candidates and a 4 MB normalized Gmail batch. A failed batch leaves the saved cursor available for retry. [Calendar sync](https://developers.google.com/workspace/calendar/api/guides/sync) · [Gmail sync](https://developers.google.com/workspace/gmail/api/guides/sync)
 
 Run `pnpm test:e2e --project=google --no-deps` for the loopback Google OAuth and API fixture. Set `TEST_GOOGLE_PORT` to override port 4495. Live verification uses designated Google test accounts and a configured OAuth client.
+
+## Workspace search
+
+Open **Search** from the workspace navigation. Filter by project, source type, owner and source date. Searches are shareable as URLs and use the reader's current access. Search results link to the work item, source revision, decision, transcript passage or shared excerpt. Use a work UUID, `PR #17`, `owner/repo#17` or a GitHub PR URL for an exact lookup.
+
+The worker uses `BRIEF_WORKER_DATABASE_URL` to backfill the text index and process changes. Keyword and exact-ID search run locally. Set `OPENAI_API_KEY` and the same `OPENAI_SEARCH_EMBEDDING_MODEL` in the API and worker to enable semantic ranking. Use an embeddings model that accepts 512 dimensions, such as `text-embedding-3-small`. Semantic results appear as embeddings are filled in. If a new query embedding fails, the API uses keyword search. The worker submits eligible titles and passages for embedding. Owner-only GitHub mirrors use keyword and exact-ID search, and Gmail indexing uses explicitly shared excerpts.
+
+Set `OPENAI_SEARCH_ANSWER_MODEL` in the API to enable cited passage selection with a Chat Completions model that supports structured outputs. The API sends the question and up to eight currently authorized passages. The answer displays verbatim source text with attribution, dates and links. When evidence is insufficient or the model is unavailable, the answer shows the available passages. The search adapters use `OPENAI_BASE_URL` unless `OPENAI_SEARCH_BASE_URL` is set.
+
+Run `pnpm test:e2e --project=search --no-deps` for the browser journey and loopback model fixture. Set `TEST_SEARCH_MODEL_PORT` to override port 4496.

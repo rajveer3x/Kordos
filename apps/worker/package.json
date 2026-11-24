@@ -11,6 +11,7 @@
     "@aws-sdk/client-s3": "3.1175.0",
     "@kordos/contracts": "workspace:*",
     "@kordos/db": "workspace:*",
+    "@kordos/search-model": "workspace:*",
     "@kordos/domain": "workspace:*",
     "bullmq": "5.81.6",
     "ioredis": "5.11.1",

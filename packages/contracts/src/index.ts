@@ -61,3 +61,5 @@ export * from "./connectors.js";
 export * from "./github.js";
 
 export * from "./google.js";
+
+export * from "./search.js";

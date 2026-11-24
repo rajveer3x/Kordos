@@ -3,6 +3,7 @@ import {
   boolean,
   check,
   date,
+  customType,
   foreignKey,
   index,
   integer,
@@ -16,10 +17,13 @@ import {
   unique,
   uniqueIndex,
   uuid,
+  vector,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import {
   foundationJobEffect,
+  searchEmbeddingDimensions,
+  searchKinds,
   type FoundationJobEffect,
 } from "@kordos/contracts";
 
@@ -1745,5 +1749,83 @@ export const githubWorkLinks = pgTable(
       t.projectId,
       t.workId,
     ),
+  ],
+);
+
+export const searchKind = pgEnum("search_kind", searchKinds);
+
+const tsvector = customType<{ data: string }>({ dataType: () => "tsvector" });
+
+export const searchOutbox = pgTable(
+  "search_outbox",
+  {
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    kind: searchKind().notNull(),
+    sourceId: uuid("source_id").notNull(),
+    queuedAt: timestamp("queued_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.workspaceId, t.projectId, t.kind, t.sourceId] }),
+    foreignKey({
+      name: "search_outbox_project_fk",
+      columns: [t.workspaceId, t.projectId],
+      foreignColumns: [projects.workspaceId, projects.id],
+    }).onDelete("cascade"),
+    index("search_outbox_queue_idx").on(t.queuedAt),
+  ],
+);
+
+export const searchChunks = pgTable(
+  "search_chunks",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    kind: searchKind().notNull(),
+    sourceId: uuid("source_id").notNull(),
+    revision: integer().notNull(),
+    ordinal: integer().notNull(),
+    title: text().notNull(),
+    passage: text().notNull(),
+    attribution: text().notNull(),
+    attributedDate: date("attributed_date"),
+    ownerId: uuid("owner_id"),
+    citation: jsonb(),
+    externalId: text("external_id"),
+    exactIds: text("exact_ids").array().notNull(),
+    audience: text().notNull(),
+    terms: tsvector().notNull().generatedAlwaysAs(sql`
+      setweight(to_tsvector('english', title), 'A') ||
+      setweight(to_tsvector('english', passage), 'B')
+    `),
+    embedding: vector({ dimensions: searchEmbeddingDimensions }),
+    model: text(),
+    embeddingLease: uuid("embedding_lease"),
+    embedAfter: timestamp("embed_after", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      name: "search_chunks_project_fk",
+      columns: [t.workspaceId, t.projectId],
+      foreignColumns: [projects.workspaceId, projects.id],
+    }).onDelete("cascade"),
+    unique("search_chunk_source_ordinal").on(
+      t.workspaceId,
+      t.projectId,
+      t.kind,
+      t.sourceId,
+      t.ordinal,
+    ),
+    check("search_chunk_audience", sql`${t.audience} IN ('project', 'owner')`),
+    index("search_chunk_terms_idx").using("gin", t.terms),
+    index("search_chunk_exact_idx").using("gin", t.exactIds),
+    index("search_chunk_embedding_queue_idx")
+      .on(t.model, t.embedAfter, t.id)
+      .where(sql`${t.audience} = 'project'`),
   ],
 );

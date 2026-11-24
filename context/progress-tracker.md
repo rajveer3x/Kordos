@@ -1,8 +1,8 @@
 # Delivery tracker
 
-**Current state** — Features 01 through 15 are verified locally.
+**Current state** — Features 01 through 16 are verified locally.
 
-**Next ready feature** — [16 · Permission-aware hybrid search](feature-specs/16-hybrid-search.md). Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
+**Next ready feature** — [17 · Weekly health and duplicate review](feature-specs/17-health-and-duplicates.md). Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
 
 | ID | Feature prompt | Depends on | State | Evidence |
 |---|---|---|---|---|
@@ -21,7 +21,7 @@
 | 13 | [Connector management and ingestion](feature-specs/13-connector-runtime.md) | 03, 04, 07 | Done | Delivery deduplication, checkpoint recovery, private-source isolation and disconnect passed. See [Feature 13 evidence](#feature-13-evidence). |
 | 14 | [GitHub activity and approved comments](feature-specs/14-github-activity-and-actions.md) | 08, 13 | Done | Webhook convergence, destination revocation and one reconciled publication passed. See [Feature 14 evidence](#feature-14-evidence). |
 | 15 | [Calendar events and shared email](feature-specs/15-calendar-and-gmail.md) | 11, 13 | Done | Calendar cancellation, per-message excerpt sharing and recovery from both expired cursors passed. See [Feature 15 evidence](#feature-15-evidence). |
-| 16 | [Permission-aware hybrid search](feature-specs/16-hybrid-search.md) | 07, 11, 14, 15 | Pending | — |
+| 16 | [Permission-aware hybrid search](feature-specs/16-hybrid-search.md) | 07, 11, 14, 15 | Done | Semantic retrieval, exact IDs during an outage, cited disagreement and immediate revocation passed. See [Feature 16 evidence](#feature-16-evidence). |
 | 17 | [Weekly health and duplicate review](feature-specs/17-health-and-duplicates.md) | 08, 10, 12, 16 | Pending | — |
 | 18 | [Workspace home and activity history](feature-specs/18-workspace-home-and-activity.md) | 10, 11, 12, 14, 17 | Pending | — |
 | 19 | [Retention and access lifecycle](feature-specs/19-privacy-and-retention.md) | 13, 15, 16, 17, 18 | Pending | — |
@@ -317,3 +317,20 @@ Verified locally on 2026-11-23 with Node 26.5.0, pnpm 10.34.9, Chromium, loopbac
 Each connection maps one selected calendar or Gmail label. Calendar previews use event titles and start times. An explicit attachment lets Calendar changes update the shared meeting. Gmail shares capture a selected excerpt of one message revision and support independent revocation.
 
 All local Feature 15 acceptance checks passed. Feature 16 is ready. Live Google verification remains a staging check using designated test accounts and a configured OAuth client. See the [Google connector setup](../README.md#google-calendar-and-gmail).
+
+## Feature 16 evidence
+
+Verified locally on 2026-11-24 with Node 26.5.0, pnpm 10.34.9, Chromium, loopback OIDC and search model fixtures, and isolated PostgreSQL, Redis and S3-compatible storage.
+
+| Check | Result |
+|---|---|
+| `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm build`, `git diff --check` | Passed. All 17 Vitest tests passed. The build reported the existing Zod annotation warnings and a 541 kB entry chunk above Vite's warning threshold. |
+| `pnpm db:migrate` twice and `pnpm db:generate` | Fresh and repeat migrations passed. Drizzle found no schema changes. A populated Feature 15 upgrade backfilled a restricted document, preserved both revisions after an edit, and produced one rebuild across concurrent workers. The previous text disappeared while the update was queued, and an ungranted viewer saw neither pending status nor the owner. The local development migration was aligned without changing canonical row counts. |
+| `pnpm test:e2e --project=search --no-deps --workers=1 --trace=on --output=test-results/feature-16-focused` | The focused [search journey](../tests/e2e/hybrid-search.spec.ts) passed. It checked the shareable filters, a speaker-attributed transcript result, an exact document passage with an emoji, empty search, error recovery and reflow at 1440, 1024, 390 and 320 CSS px. |
+| `pnpm test:e2e --workers=3 --trace=on --output=test-results/feature-16-full` | All 23 Chromium tests passed, including Redis recovery and Features 02–16. The isolated run set `POSTGRES_DB` to the same database used by the app and worker. |
+| Hybrid ranking and exact IDs | A paraphrase with no keyword match retrieved the labeled decision. Exact PR IDs, repository-qualified IDs and GitHub URLs worked during a simulated embedding outage without making query embedding requests. Keyword search remained available. |
+| Access and cited answers | A neighboring tenant and an ungranted viewer received no private results. Original Gmail text and an owner-only PR stayed out of model inputs. Revocation hid a restricted document with its index rows still present and suppressed a Gmail excerpt revoked during answer generation. A conflict showed both dated, attributed decisions, and insufficient evidence returned available passages. The API database role could neither select raw index text nor claim embedding jobs. |
+
+Keyword and exact-ID search use the local index. Semantic ranking and cited passage selection use separately configured model settings. Live model verification remains a staging check. The release-scale workload remains part of Feature 22. See [workspace search setup](../README.md#workspace-search).
+
+All local Feature 16 acceptance checks passed. Feature 17 is ready.

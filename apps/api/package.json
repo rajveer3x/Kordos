@@ -12,6 +12,7 @@
     "@fastify/cookie": "11.1.5",
     "@kordos/contracts": "workspace:*",
     "@kordos/db": "workspace:*",
+    "@kordos/search-model": "workspace:*",
     "fastify": "5.12.8",
     "ioredis": "5.11.1",
     "openid-client": "6.9.1",

@@ -38,6 +38,7 @@ export default defineConfig({
         "**/connectors.spec.ts",
         "**/github-activity-and-actions.spec.ts",
         "**/calendar-and-gmail.spec.ts",
+        "**/hybrid-search.spec.ts",
       ],
     },
     {
@@ -117,6 +118,12 @@ export default defineConfig({
       dependencies: ["github"],
       use: { actionTimeout: 10_000 },
     },
+    {
+      name: "search",
+      testMatch: "**/hybrid-search.spec.ts",
+      dependencies: ["google"],
+      use: { actionTimeout: 10_000 },
+    },
   ],
   webServer: {
     command: "pnpm dev",
@@ -127,6 +134,10 @@ export default defineConfig({
       AUTH0_CLIENT_SECRET: oidcClientSecret,
       OPENAI_BASE_URL: `http://127.0.0.1:${process.env.TEST_BRIEF_MODEL_PORT ?? 4429}/v1/`,
       OPENAI_API_KEY: "test-brief-key",
+      OPENAI_SEARCH_BASE_URL: `http://127.0.0.1:${process.env.TEST_SEARCH_MODEL_PORT ?? 4496}/v1/`,
+      OPENAI_SEARCH_EMBEDDING_MODEL: "search-embeddings-fixture",
+      OPENAI_SEARCH_ANSWER_MODEL: "search-answer-fixture",
+      OPENAI_SEARCH_TIMEOUT_MS: "1500",
       OPENAI_BRIEF_MODEL: "brief-fixture",
       CONNECTOR_TOKEN_KEY: Buffer.alloc(32, 13).toString("base64url"),
       CONNECTOR_FIXTURE_URL: `http://127.0.0.1:${process.env.TEST_CONNECTOR_PORT ?? 4493}/`,

@@ -7,6 +7,7 @@ import {
   googleEndpoints,
   googleOAuthEnv,
   githubIdSchema,
+  searchModelEnv,
   type FoundationJobPayload,
 } from "@kordos/contracts";
 import {
@@ -15,6 +16,7 @@ import {
   databaseUrlSchema,
   fixtureEndpointSchema,
 } from "@kordos/db";
+import { searchProvider } from "@kordos/search-model";
 import { runFoundationJob } from "@kordos/domain";
 import { Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
@@ -23,6 +25,7 @@ import { startBriefs } from "./briefs.js";
 import { startConnectors } from "./connectors/worker.js";
 import { startInbox } from "./inbox.js";
 import { startMeetings } from "./meetings.js";
+import { startSearch } from "./search.js";
 import { startRisks } from "./risks.js";
 import { startApprovals } from "./approvals.js";
 
@@ -30,10 +33,7 @@ const config = z
   .object({
     DATABASE_URL: databaseUrlSchema,
     BRIEF_WORKER_DATABASE_URL: databaseUrlSchema.optional(),
-    OPENAI_API_KEY: z.string().min(1).optional(),
-    OPENAI_BASE_URL: z
-      .url({ protocol: /^https?$/ })
-      .default("https://api.openai.com/v1/"),
+    ...searchModelEnv,
     OPENAI_MEETING_MODEL: z
       .string()
       .min(1)
@@ -250,6 +250,15 @@ const meetings = settings.BRIEF_WORKER_DATABASE_URL
     )
   : undefined;
 const shutdown = new AbortController();
+const search = settings.BRIEF_WORKER_DATABASE_URL
+  ? startSearch(
+      settings.BRIEF_WORKER_DATABASE_URL,
+      settings.OPENAI_SEARCH_EMBEDDING_MODEL
+        ? searchProvider(settings)
+        : undefined,
+      shutdown.signal,
+    )
+  : undefined;
 const inbox = startInbox(
   settings.BRIEF_WORKER_DATABASE_URL ?? settings.DATABASE_URL,
   shutdown.signal,
@@ -320,6 +329,7 @@ async function stop() {
       meetings?.close(),
       connectors?.close(),
       inbox,
+      search,
     ]);
     await queue.close();
     await db.close();

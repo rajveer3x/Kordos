@@ -65,6 +65,9 @@ importers:
       '@kordos/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@kordos/search-model':
+        specifier: workspace:*
+        version: link:../../packages/search-model
       fastify:
         specifier: 5.12.8
         version: 5.12.8
@@ -144,6 +147,9 @@ importers:
       '@kordos/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@kordos/search-model':
+        specifier: workspace:*
+        version: link:../../packages/search-model
       bullmq:
         specifier: 5.81.6
         version: 5.81.6
@@ -187,6 +193,15 @@ importers:
       '@kordos/contracts':
         specifier: workspace:*
         version: link:../contracts
+
+  packages/search-model:
+    dependencies:
+      '@kordos/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
 
 packages:
 
