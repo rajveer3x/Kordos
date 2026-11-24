@@ -178,6 +178,8 @@ Document formatting supports headings, lists, emphasis, inline code and task lin
 
 All local Feature 07 acceptance checks passed. Feature 08 is ready.
 
+The [hosted CI passage-selection issue](current-issues.md#hosted-ci-document-passage-selection) reproduced twice on Ubuntu Chromium. The updated browser test passed three times each in Ubuntu and macOS Chromium. Hosted verification of the fix is pending.
+
 ## Feature 08 evidence
 
 Verified on 2026-11-23 with Node 26.5.0, pnpm 10.34.9, Chromium, a local OIDC issuer and isolated PostgreSQL, Redis and S3-compatible storage.

@@ -166,15 +166,18 @@ test("documents preserve history and decisions hide source evidence after revoca
     const documentId = documentUrl.split("/").at(-1)!;
     const documentApi = sourceApi + "/documents/" + documentId;
 
+    await leadPage.bringToFront();
     await leadPage.getByText("Select a passage with the keyboard").click();
-    await leadPage
-      .getByLabel("Saved document text")
-      .evaluate((field, excerpt) => {
-        const editor = field as HTMLTextAreaElement;
-        editor.focus();
-        const start = editor.value.indexOf(excerpt);
-        editor.setSelectionRange(start, start + excerpt.length);
-      }, quote);
+    const savedText = leadPage.getByLabel("Saved document text");
+    await savedText.focus();
+    // Position the caret by offset so line wrapping cannot change the selection.
+    await savedText.evaluate((editor: HTMLTextAreaElement, excerpt) => {
+      const start = editor.value.indexOf(excerpt);
+      editor.setSelectionRange(start, start);
+    }, quote);
+    for (let index = 0; index < quote.length; index++) {
+      await leadPage.keyboard.press("Shift+ArrowRight");
+    }
     const selected = leadPage.getByRole("link", {
       name: "Open selected passage",
     });
