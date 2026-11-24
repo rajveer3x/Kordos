@@ -1,8 +1,8 @@
 # Delivery tracker
 
-**Current state** — Features 01 through 17 are verified locally.
+**Current state** — Features 01 through 18 are verified locally.
 
-**Next ready feature** — [18 · Workspace home and activity history](feature-specs/18-workspace-home-and-activity.md). Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
+**Next ready feature** — [19 · Retention and access lifecycle](feature-specs/19-privacy-and-retention.md). Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
 
 | ID | Feature prompt | Depends on | State | Evidence |
 |---|---|---|---|---|
@@ -23,7 +23,7 @@
 | 15 | [Calendar events and shared email](feature-specs/15-calendar-and-gmail.md) | 11, 13 | Done | Calendar cancellation, per-message excerpt sharing and recovery from both expired cursors passed. See [Feature 15 evidence](#feature-15-evidence). |
 | 16 | [Permission-aware hybrid search](feature-specs/16-hybrid-search.md) | 07, 11, 14, 15 | Done | Semantic retrieval, exact IDs during an outage, cited disagreement and immediate revocation passed. See [Feature 16 evidence](#feature-16-evidence). |
 | 17 | [Weekly health and duplicate review](feature-specs/17-health-and-duplicates.md) | 08, 10, 12, 16 | Done | Commitment slack, historical evidence revocation, versioned dismissal and cycle-safe consolidation passed. See [Feature 17 evidence](#feature-17-evidence). |
-| 18 | [Workspace home and activity history](feature-specs/18-workspace-home-and-activity.md) | 10, 11, 12, 14, 17 | Pending | — |
+| 18 | [Workspace home and activity history](feature-specs/18-workspace-home-and-activity.md) | 10, 11, 12, 14, 17 | Done | Scoped priorities, matching review and audit identifiers, and mobile activity return passed. See [Feature 18 evidence](#feature-18-evidence). |
 | 19 | [Retention and access lifecycle](feature-specs/19-privacy-and-retention.md) | 13, 15, 16, 17, 18 | Pending | — |
 | 20 | [Deployment and recovery](feature-specs/20-operability-and-delivery.md) | 12, 14, 15, 19 | Pending | — |
 | 21 | [Accessibility and visual verification](feature-specs/21-accessibility-and-visual-qa.md) | 18, 19 | Pending | — |
@@ -352,3 +352,20 @@ Verified locally on 2026-11-24 with Node 26.5.0, pnpm 10.34.9, Chromium, loopbac
 Reports use Monday-start weeks in each project’s time zone and retain the last successful capture for each week. Duplicate suggestions use local lexical retrieval for open tasks in the same project. See [weekly health and duplicate review](../README.md#weekly-health-and-duplicate-review).
 
 All Feature 17 acceptance checks passed locally. Feature 18 is ready.
+
+
+## Feature 18 evidence
+
+Verified locally on 2026-11-24 with Node 26.5.0, pnpm 10.34.9, Chromium, loopback OIDC and isolated PostgreSQL, Redis and S3-compatible storage.
+
+| Check | Result |
+|---|---|
+| `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm build`, `git diff --check` | Passed, including all 17 Vitest tests. The build reported the existing Zod annotation warnings and a 545 kB entry chunk above Vite's warning threshold. |
+| `pnpm db:migrate` twice and `pnpm db:generate` | Fresh and repeat migrations passed. Drizzle found no schema changes. An isolated Feature 17 upgrade preserved a restricted project, one pending review, a weekly report and the original audit event ID under the app role. The local Compose migration preserved project, work, proposal, audit and weekly report counts. |
+| `pnpm test:e2e --workers=3 --trace=on --output=test-results/feature-18-full` | All 25 Chromium tests passed. The [Feature 18 journey](../tests/e2e/workspace-activity.spec.ts) checked project activity at 1440, 1024, 390 and 320 CSS px. Desktop and mobile screenshots showed the selected event and its task and receipt links. |
+| Home and authorization | A lead saw an actionable proposal in Home and project overview. A viewer could read submitted public activity and the confirmed decision. Draft activity and restricted-project activity respected access. Revocation removed a restricted project's history, archival cleared active priorities while preserving permitted history, and switching workspaces cleared the previous workspace's priorities. |
+| Action and navigation | Approval removed the pending Home row and updated the linked due task. The project audit, task history and approval receipt shared the same effect event and receipt IDs. Actor, source and type filters returned consistent cursor pages. Mobile Back from the task and review restored the same URL, cursor and selected event. |
+
+Home gives unconfirmed decisions priority for project leads and shows unsuperseded decisions confirmed in the past seven days. Project activity identifies Workspace and GitHub audit events and retains its filters and selection in the URL.
+
+All Feature 18 acceptance checks passed locally. Feature 19 is ready.

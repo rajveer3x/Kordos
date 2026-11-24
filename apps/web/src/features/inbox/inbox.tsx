@@ -284,7 +284,12 @@ function HomeList({
   empty,
   workspace,
 }: {
-  items: (Target & { milestone?: string | null })[];
+  items: (Target & {
+    milestone?: string | null;
+    revision?: number;
+    receivedAt?: string;
+    severity?: "at_risk" | "watch";
+  })[];
   reason: InboxReason;
   empty: string;
   workspace: string;
@@ -294,9 +299,26 @@ function HomeList({
     <ul className="inbox-list">
       {items.map((entry) => (
         <li key={entry.subjectId} className="planning-item-copy">
-          <Link to={destination(workspace, entry, reason)}>{entry.title}</Link>
+          <Link to={destination(workspace, entry, reason, entry.revision)}>
+            {entry.title}
+          </Link>
+          {entry.severity && (
+            <StatusLabel
+              tone={entry.severity === "at_risk" ? "risk" : "neutral"}
+            >
+              {entry.severity === "at_risk" ? "At risk" : "Watch"}
+            </StatusLabel>
+          )}
           <span>
             {entry.projectName}
+            {entry.receivedAt && (
+              <>
+                {" · "}
+                <time dateTime={entry.receivedAt}>
+                  {new Date(entry.receivedAt).toLocaleString()}
+                </time>
+              </>
+            )}
             {entry.milestone &&
               entry.milestone !== entry.title &&
               ` · ${entry.milestone}`}
@@ -313,14 +335,21 @@ function HomeList({
   );
 }
 
-export function HomePriorities() {
+export function HomePriorities({
+  projectId,
+  showReviews,
+}: { projectId?: string; showReviews?: boolean } = {}) {
   const { api, key, workspace } = usePlanning();
   const [params, setParams] = useSearchParams();
   const sort = params.get("reviewSort") === "milestone" ? "milestone" : "age";
   const home = useQuery({
-    queryKey: [...key, "home", sort],
+    queryKey: [...key, "home", projectId, sort],
     queryFn: ({ signal }) =>
-      read(`${api}/home?sort=${sort}`, inboxHomeSchema, signal),
+      read(
+        `${api}/home?${new URLSearchParams({ sort, ...(projectId ? { projectId } : {}) })}`,
+        inboxHomeSchema,
+        signal,
+      ),
     ...planningRefresh,
   });
   if (home.isPending)
@@ -329,6 +358,91 @@ export function HomePriorities() {
     return <InboxError error={home.error} retry={() => void home.refetch()} />;
   return (
     <div className="inbox-home">
+      <section
+        className="glass-panel planning-panel"
+        aria-labelledby="home-decisions"
+      >
+        <h2 id="home-decisions">Decisions</h2>
+        {home.data.decisions.length ? (
+          <ul className="inbox-list">
+            {home.data.decisions.map((decision) => (
+              <li key={decision.id} className="planning-item-copy">
+                <Link
+                  to={workspacePath(
+                    `${projectPath(decision.projectId)}/documents/decisions/${decision.id}`,
+                    workspace.id,
+                  )}
+                >
+                  {decision.question}
+                </Link>
+                <span>
+                  {decision.confirmedAt ? "Confirmed" : "Needs confirmation"} ·{" "}
+                  {decision.accountable.name}
+                </span>
+                <span>
+                  {decision.projectName} · Effective{" "}
+                  <time dateTime={decision.effectiveDate}>
+                    {decision.effectiveDate}
+                  </time>
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="planning-help">No decisions need your attention.</p>
+        )}
+      </section>
+      {(showReviews ?? workspace.role !== "viewer") && (
+        <section
+          className="glass-panel planning-panel"
+          aria-labelledby="home-reviews"
+        >
+          <h2 id="home-reviews">Pending reviews ({home.data.pendingCount})</h2>
+          {home.data.pendingCount > 1 && (
+            <label className="inbox-review-sort">
+              Sort pending reviews
+              <select
+                value={sort}
+                onChange={(event) => {
+                  const next = new URLSearchParams(params);
+                  if (event.target.value === "milestone")
+                    next.set("reviewSort", "milestone");
+                  else next.delete("reviewSort");
+                  setParams(next);
+                }}
+              >
+                <option value="age">Oldest first</option>
+                <option value="milestone">Affected milestone</option>
+              </select>
+            </label>
+          )}
+          <HomeList
+            items={home.data.reviews}
+            reason="review"
+            workspace={workspace.id}
+            empty="You have no reviews waiting for you."
+          />
+          {home.data.pendingCount > 5 && (
+            <Link to={workspacePath("/reviews?status=pending", workspace.id)}>
+              Open review queue
+            </Link>
+          )}
+        </section>
+      )}
+      {!projectId && (
+        <section
+          className="glass-panel planning-panel"
+          aria-labelledby="home-risks"
+        >
+          <h2 id="home-risks">Open risks</h2>
+          <HomeList
+            items={home.data.risks}
+            reason="risk"
+            workspace={workspace.id}
+            empty="No open risks in your projects."
+          />
+        </section>
+      )}
       <section
         className="glass-panel planning-panel"
         aria-labelledby="home-due"
@@ -343,49 +457,14 @@ export function HomePriorities() {
       </section>
       <section
         className="glass-panel planning-panel"
-        aria-labelledby="home-reviews"
+        aria-labelledby="home-mentions"
       >
-        <h2 id="home-reviews">Pending reviews ({home.data.pendingCount})</h2>
-        {home.data.pendingCount > 1 && (
-          <label className="inbox-review-sort">
-            Sort pending reviews
-            <select
-              value={sort}
-              onChange={(event) => {
-                const next = new URLSearchParams(params);
-                if (event.target.value === "milestone")
-                  next.set("reviewSort", "milestone");
-                else next.delete("reviewSort");
-                setParams(next);
-              }}
-            >
-              <option value="age">Oldest first</option>
-              <option value="milestone">Affected milestone</option>
-            </select>
-          </label>
-        )}
+        <h2 id="home-mentions">Unread mentions</h2>
         <HomeList
-          items={home.data.reviews}
-          reason="review"
+          items={home.data.mentions}
+          reason="mention"
           workspace={workspace.id}
-          empty="You have no reviews waiting for you."
-        />
-        {home.data.pendingCount > 5 && (
-          <Link to={workspacePath("/reviews?status=pending", workspace.id)}>
-            Open review queue
-          </Link>
-        )}
-      </section>
-      <section
-        className="glass-panel planning-panel"
-        aria-labelledby="home-risks"
-      >
-        <h2 id="home-risks">Open risks</h2>
-        <HomeList
-          items={home.data.risks}
-          reason="risk"
-          workspace={workspace.id}
-          empty="No open risks in your projects."
+          empty="You have no unread mentions."
         />
       </section>
     </div>

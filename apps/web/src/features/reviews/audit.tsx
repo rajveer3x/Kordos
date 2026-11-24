@@ -1,14 +1,18 @@
 import {
+  activitySourceSchema,
+  activityTypeSchema,
   auditFilterSchema,
   auditPageSchema,
+  idSchema,
   type AuditEntry,
 } from "@kordos/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { useEffect, useId, useRef, useState } from "react";
+import { Link, useLocation, useSearchParams } from "react-router";
 import { AsyncState, Button, PageHeading } from "../../components/ui";
 import { GitHubActivity } from "../connectors/github-activity";
 import { denied, read } from "../identity/api";
+import { citationPath } from "../knowledge/knowledge-client";
 import {
   planningRefresh,
   useLiveProject,
@@ -66,6 +70,26 @@ const actions: Record<string, string> = {
   "proposal.reconciliation_required": "Reconciliation required",
 };
 
+const activityTypes: Record<AuditEntry["type"], string> = {
+  work: "Work",
+  dependency: "Dependencies",
+  discussion: "Discussion",
+  document: "Documents",
+  decision: "Decisions",
+  meeting: "Meetings",
+  risk: "Risks",
+  review: "Reviews",
+  brief: "Briefs",
+  project: "Project changes",
+  connector: "Connector activity",
+  other: "Other",
+};
+
+const activitySources: Record<AuditEntry["source"], string> = {
+  workspace: "Workspace",
+  github: "GitHub",
+};
+
 function title(event: AuditEntry) {
   if (event.action === "work.edited")
     return event.receiptId
@@ -81,9 +105,22 @@ function title(event: AuditEntry) {
 
 export function ProjectAudit() {
   const { details } = useLiveProject();
+  const [search] = useSearchParams();
+  const showGitHub =
+    search.get("source") !== "workspace" &&
+    ![
+      "actorId",
+      "type",
+      "targetId",
+      "from",
+      "to",
+      "eventId",
+      "selected",
+      "cursor",
+    ].some((key) => search.has(key));
   return (
     <div className="project-activity">
-      <GitHubActivity projectId={details.id} />
+      {showGitHub && <GitHubActivity projectId={details.id} />}
       <AuditPage projectId={details.id} />
     </div>
   );
@@ -92,7 +129,11 @@ export function ProjectAudit() {
 export function AuditPage({ projectId }: { projectId?: string }) {
   const { api, key } = usePlanning();
   const [search, setSearch] = useSearchParams();
+  const selectedId = projectId
+    ? idSchema.safeParse(search.get("selected")).data
+    : undefined;
   const params = new URLSearchParams(search);
+  params.delete("selected");
   if (projectId) params.set("projectId", projectId);
   const query = params.toString();
   const result = useQuery({
@@ -102,18 +143,60 @@ export function AuditPage({ projectId }: { projectId?: string }) {
     ...planningRefresh,
   });
 
+  const selected = useQuery({
+    queryKey: [...key, "audit", "event", projectId, selectedId],
+    queryFn: ({ signal }) =>
+      read(
+        `${api}/audit?${new URLSearchParams({
+          projectId: projectId!,
+          eventId: selectedId!,
+        })}`,
+        auditPageSchema,
+        signal,
+      ),
+    enabled: !!selectedId,
+    ...planningRefresh,
+  });
+
   function clearCursor() {
     const next = new URLSearchParams(search);
     next.delete("cursor");
+    next.delete("selected");
     setSearch(next);
   }
 
   return (
     <div className={projectId ? undefined : "standard-page"}>
-      <title>Audit history · Kordos</title>
+      <title>{projectId ? "Project activity" : "Audit history"} · Kordos</title>
       {!projectId && <PageHeading title="Audit history" />}
       <section className="glass-panel planning-panel">
-        {projectId && <h2>Audit history</h2>}
+        {projectId && <h2>Activity history</h2>}
+        {selectedId && (
+          <SelectedActivity key={selectedId} search={search}>
+            {selected.isPending ? (
+              <AsyncState kind="loading" message="Loading activity event…" />
+            ) : selected.isError ? (
+              <AsyncState
+                kind="error"
+                message="Could not load this activity event."
+                retry={() => void selected.refetch()}
+              />
+            ) : selected.data?.items[0] ? (
+              <ol className="review-list audit-list">
+                <AuditRow
+                  entry={selected.data.items[0]}
+                  projectId={projectId}
+                  search={search}
+                  selected
+                />
+              </ol>
+            ) : (
+              <p className="planning-help">
+                This activity event is unavailable.
+              </p>
+            )}
+          </SelectedActivity>
+        )}
         <AuditFilters
           key={query}
           search={search}
@@ -166,6 +249,7 @@ export function AuditPage({ projectId }: { projectId?: string }) {
                   onClick={() => {
                     const next = new URLSearchParams(search);
                     next.set("cursor", result.data.nextCursor!);
+                    next.delete("selected");
                     setSearch(next);
                   }}
                 >
@@ -180,6 +264,32 @@ export function AuditPage({ projectId }: { projectId?: string }) {
   );
 }
 
+function SelectedActivity({
+  search,
+  children,
+}: {
+  search: URLSearchParams;
+  children: React.ReactNode;
+}) {
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    heading.current?.focus();
+  }, []);
+  const close = new URLSearchParams(search);
+  close.delete("selected");
+  return (
+    <section className="selected-activity">
+      <div className="planning-heading">
+        <h3 ref={heading} tabIndex={-1}>
+          Selected event
+        </h3>
+        <Link to={`?${close}`}>Close event</Link>
+      </div>
+      {children}
+    </section>
+  );
+}
+
 function AuditFilters({
   search,
   projectId,
@@ -190,38 +300,10 @@ function AuditFilters({
   onFilter: (params: URLSearchParams) => void;
 }) {
   const [error, setError] = useState("");
-  return (
-    <form
-      className="planning-filters"
-      onSubmit={(event) => {
-        event.preventDefault();
-        const next = new URLSearchParams();
-        for (const [field, value] of new FormData(event.currentTarget)) {
-          if (typeof value === "string" && value.trim())
-            next.set(field, value.trim());
-        }
-        const parsed = auditFilterSchema.safeParse(Object.fromEntries(next));
-        if (!parsed.success) {
-          setError("Check the IDs, GitHub comment URL and date range.");
-          return;
-        }
-        setError("");
-        onFilter(next);
-      }}
-    >
-      {!projectId && (
-        <label>
-          Project ID
-          <input
-            name="projectId"
-            defaultValue={search.get("projectId") ?? ""}
-          />
-        </label>
-      )}
-      <label>
-        Actor ID
-        <input name="actorId" defaultValue={search.get("actorId") ?? ""} />
-      </label>
+  const sourceLabel = useId();
+  const typeLabel = useId();
+  const extraFilters = (
+    <>
       <label>
         Target ID
         <input name="targetId" defaultValue={search.get("targetId") ?? ""} />
@@ -246,6 +328,85 @@ function AuditFilters({
         Through date (UTC)
         <input name="to" type="date" defaultValue={search.get("to") ?? ""} />
       </label>
+    </>
+  );
+  return (
+    <form
+      className="planning-filters"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const next = new URLSearchParams();
+        for (const [field, value] of new FormData(event.currentTarget)) {
+          if (typeof value === "string" && value.trim())
+            next.set(field, value.trim());
+        }
+        const parsed = auditFilterSchema.safeParse(Object.fromEntries(next));
+        if (!parsed.success) {
+          setError("Check the activity filters, IDs, and date range.");
+          return;
+        }
+        setError("");
+        onFilter(next);
+      }}
+    >
+      {!projectId && (
+        <label>
+          Project ID
+          <input
+            name="projectId"
+            defaultValue={search.get("projectId") ?? ""}
+          />
+        </label>
+      )}
+      <label>
+        Actor ID
+        <input name="actorId" defaultValue={search.get("actorId") ?? ""} />
+      </label>
+      <label>
+        <span id={sourceLabel}>Source</span>
+        <select
+          name="source"
+          aria-labelledby={sourceLabel}
+          defaultValue={search.get("source") ?? ""}
+        >
+          <option value="">All sources</option>
+          {activitySourceSchema.options.map((value) => (
+            <option key={value} value={value}>
+              {activitySources[value]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        <span id={typeLabel}>Type</span>
+        <select
+          name="type"
+          aria-labelledby={typeLabel}
+          defaultValue={search.get("type") ?? ""}
+        >
+          <option value="">All types</option>
+          {activityTypeSchema.options.map((value) => (
+            <option key={value} value={value}>
+              {activityTypes[value]}
+            </option>
+          ))}
+        </select>
+      </label>
+      {projectId ? (
+        <details
+          className="activity-filter-options"
+          open={
+            ["targetId", "githubCommentUrl", "from", "to"].some((key) =>
+              search.has(key),
+            ) || undefined
+          }
+        >
+          <summary>More filters</summary>
+          <div className="planning-filters">{extraFilters}</div>
+        </details>
+      ) : (
+        extraFilters
+      )}
       <div className="planning-actions">
         <Button type="submit">Filter</Button>
         {search.size > 0 && (
@@ -273,15 +434,27 @@ function AuditRow({
   entry,
   search,
   projectId,
+  selected = false,
 }: {
   entry: AuditEntry;
   search: URLSearchParams;
   projectId?: string;
+  selected?: boolean;
 }) {
   const { workspace } = usePlanning();
+  const location = useLocation();
+  const activityReturn = projectId
+    ? { activityReturn: location.pathname + location.search }
+    : undefined;
+  const selection = new URLSearchParams(search);
+  selection.set("selected", entry.id);
+  const source = entry.projectId
+    ? entityLink(workspace.id, entry.projectId, entry.entity)
+    : undefined;
   function filter(field: "actorId" | "projectId" | "targetId", value: string) {
     const next = new URLSearchParams(search);
     next.delete("eventId");
+    next.delete("selected");
     next.delete("cursor");
     next.set(field, value);
     return "?" + next.toString();
@@ -291,7 +464,7 @@ function AuditRow({
       <div className="planning-item-copy">
         <strong>{title(entry)}</strong>
         <span>
-          {entry.actorType === "service" && "Approval worker · authorized by "}
+          {entry.actorType === "service" && "Worker · attributed to "}
           <Link
             aria-label={`Filter by actor ${entry.actor.name}`}
             to={filter("actorId", entry.actor.id)}
@@ -302,6 +475,8 @@ function AuditRow({
           <time dateTime={entry.occurredAt}>
             {new Date(entry.occurredAt).toLocaleString()}
           </time>
+          {projectId &&
+            ` · ${activitySources[entry.source]} · ${activityTypes[entry.type]}`}
           {!projectId && entry.projectId && (
             <>
               {" · "}
@@ -321,12 +496,18 @@ function AuditRow({
         </p>
       )}
       <div className="planning-actions">
+        {projectId && !selected && (
+          <Link to={`?${selection}`} aria-label={`Open event: ${title(entry)}`}>
+            Open event
+          </Link>
+        )}
         {entry.projectId && entry.workId && (
           <Link
             to={workspacePath(
               `${projectPath(entry.projectId, "work")}/${entry.workId}`,
               workspace.id,
             )}
+            state={activityReturn}
           >
             Open work item
           </Link>
@@ -337,8 +518,14 @@ function AuditRow({
               `/reviews/${entry.proposalId}?revision=${entry.revision}`,
               workspace.id,
             )}
+            state={activityReturn}
           >
             Review revision {entry.revision}
+          </Link>
+        )}
+        {source && (
+          <Link to={source.path} state={activityReturn}>
+            {source.label}
           </Link>
         )}
         {entry.receiptId && (
@@ -358,4 +545,30 @@ function AuditRow({
       )}
     </li>
   );
+}
+
+function entityLink(
+  workspace: string,
+  projectId: string,
+  entity: AuditEntry["entity"],
+) {
+  if (!entity || entity.kind === "work" || entity.kind === "review") return;
+  const project = projectPath(projectId);
+  const { id, revision } = entity;
+  const version = revision ? `?revision=${revision}` : "";
+  if (entity.kind === "comment") {
+    return {
+      path: citationPath(workspace, { kind: "comment", projectId, id }),
+      label: "Open comment",
+    };
+  }
+  const [path, label] = {
+    document: [`/documents/${id}${version}`, "Open document"],
+    decision: [`/documents/decisions/${id}`, "Open decision"],
+    meeting: [`/meetings/${id}`, "Open meeting"],
+    risk: [`/risks/${id}`, "Open risk"],
+    brief: [`/briefs/${id}`, "Open brief"],
+    github: [`/documents/sources/${id}`, "Open GitHub source"],
+  }[entity.kind];
+  return { path: workspacePath(project + path, workspace), label };
 }

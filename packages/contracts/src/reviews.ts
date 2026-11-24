@@ -165,11 +165,43 @@ const workSnapshotSchema = workFieldsSchema.safeExtend({
   archived: z.boolean(),
   completedAt: instant.nullable(),
 });
+export const activityTypeSchema = z.enum([
+  "work",
+  "dependency",
+  "discussion",
+  "document",
+  "decision",
+  "meeting",
+  "risk",
+  "review",
+  "brief",
+  "project",
+  "connector",
+  "other",
+]);
+export const activitySourceSchema = z.enum(["workspace", "github"]);
+const activityEntitySchema = z.object({
+  kind: z.enum([
+    "work",
+    "comment",
+    "document",
+    "decision",
+    "meeting",
+    "risk",
+    "review",
+    "brief",
+    "github",
+  ]),
+  id: idSchema,
+  revision: version.nullable(),
+});
 export const auditFilterSchema = z
   .object({
     eventId: idSchema.optional(),
     projectId: idSchema.optional(),
     actorId: idSchema.optional(),
+    type: activityTypeSchema.optional(),
+    source: activitySourceSchema.optional(),
     targetId: idSchema.optional(),
     githubCommentUrl: githubRemoteReceiptSchema.shape.url
       .max(310)
@@ -193,6 +225,9 @@ export const auditPageSchema = z.object({
       targetId: idSchema,
       workId: idSchema.nullable(),
       action: z.string(),
+      type: activityTypeSchema,
+      source: activitySourceSchema,
+      entity: activityEntitySchema.nullable(),
       actor: personSchema,
       actorType: z.enum(["user", "service"]),
       occurredAt: instant,

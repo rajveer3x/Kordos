@@ -16,6 +16,7 @@ import {
 } from "react-router";
 import { Sheet } from "../../components/sheet";
 import { AsyncState, Button, StatusLabel } from "../../components/ui";
+import { useActivityReturn } from "../workspace/activity-return";
 import { projectPath, workspacePath } from "../workspace/workspace-model";
 import { GitHubActivity } from "../connectors/github-activity";
 import { DiscussionPanel } from "../collaboration/discussion-panel";
@@ -33,7 +34,8 @@ const WorkBriefOrigin = lazy(() => import("../briefs/work-origin"));
 export function WorkInspector({ create = false }: { create?: boolean }) {
   const { workId } = useParams();
   const { details, workUrl, opener } = useOutletContext<WorkOutlet>();
-  const { api, key } = usePlanning();
+  const { api, key, workspace } = usePlanning();
+  const activityReturn = useActivityReturn(workspace.id);
   const { search } = useLocation();
   const navigate = useNavigate();
   const path = `${api}/projects/${details.id}/work`;
@@ -51,7 +53,8 @@ export function WorkInspector({ create = false }: { create?: boolean }) {
     enabled: canEdit,
     ...planningRefresh,
   });
-  const close = () => navigate(workUrl + search, { replace: true });
+  const close = () =>
+    navigate(activityReturn ?? workUrl + search, { replace: true });
   const itemTitle = denied(item.error) ? undefined : item.data?.title;
   const title = create ? "Create work item" : (itemTitle ?? "Work item");
   return (

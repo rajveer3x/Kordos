@@ -110,3 +110,32 @@
   gap: var(--space-4);
   margin-block-start: var(--space-4);
 }
+
+.selected-activity {
+  min-width: 0;
+  margin-block-end: var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-panel);
+  background: var(--inset);
+}
+
+.selected-activity h3 {
+  margin: 0;
+}
+
+.selected-activity .audit-list {
+  margin-block-end: 0;
+}
+
+.activity-filter-options {
+  grid-column: 1 / -1;
+}
+
+.activity-filter-options summary {
+  width: fit-content;
+  min-height: 44px;
+  align-content: center;
+  color: var(--action);
+  cursor: pointer;
+}

@@ -75,14 +75,18 @@ function ProjectTabs({ project }: { project: Project }) {
 export function ProjectHeader({
   project,
   action,
+  compact = false,
 }: {
   project: Project;
   action?: ReactNode;
+  compact?: boolean;
 }) {
   return (
     <header>
       <Breadcrumbs current={project.name} />
-      <div className="project-heading glass-panel glass-panel--blur">
+      <div
+        className={`project-heading glass-panel glass-panel--blur${compact ? " project-heading--compact" : ""}`}
+      >
         <div className="project-heading__content">
           <PageHeading
             title={project.name}

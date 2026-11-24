@@ -192,6 +192,12 @@ export const auditEvents = pgTable(
       foreignColumns: [projects.workspaceId, projects.id],
     }),
     index().on(table.workspaceId, table.createdAt),
+    index("audit_events_project_activity_idx").on(
+      table.workspaceId,
+      table.projectId,
+      table.createdAt,
+      table.id,
+    ),
     index("audit_events_work_history_idx").on(
       table.workspaceId,
       table.projectId,

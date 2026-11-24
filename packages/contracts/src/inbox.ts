@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { idSchema, timeZoneSchema } from "./identity.js";
+import { personSchema } from "./planning.js";
 
 export const inboxReasonSchema = z.enum([
   "assignment",
@@ -69,9 +70,26 @@ export const inboxHomeSchema = z.object({
     inboxTargetSchema.extend({
       requestedAt: z.iso.datetime({ offset: true }),
       milestone: z.string().nullable(),
+      revision: z.number().int().positive(),
     }),
   ),
   pendingCount: z.number().int().nonnegative(),
   due: z.array(inboxTargetSchema),
-  risks: z.array(inboxTargetSchema),
+  risks: z.array(
+    inboxTargetSchema.extend({ severity: z.enum(["at_risk", "watch"]) }),
+  ),
+  mentions: z.array(
+    inboxTargetSchema.extend({ receivedAt: z.iso.datetime({ offset: true }) }),
+  ),
+  decisions: z.array(
+    z.object({
+      id: idSchema,
+      projectId: idSchema,
+      projectName: z.string(),
+      question: z.string(),
+      effectiveDate: z.iso.date(),
+      confirmedAt: z.iso.datetime({ offset: true }).nullable(),
+      accountable: personSchema,
+    }),
+  ),
 });

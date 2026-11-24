@@ -91,7 +91,7 @@ export function reviewsStore(client: Sql) {
     audit([actor, workspace]: [string, string], filter: AuditFilter) {
       return scoped(actor, workspace, async (sql) => {
         const [row] =
-          await sql`SELECT kordos_reviews.audit(${JSON.stringify(filter)}::jsonb) AS value`;
+          await sql`SELECT kordos_reviews.audit(${JSON.stringify(filter)}::text::jsonb) AS value`;
         return row?.value;
       });
     },

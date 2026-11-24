@@ -19,6 +19,8 @@ import {
 } from "../../components/ui";
 import { DiscussionPanel } from "../collaboration/discussion-panel";
 import { denied, read } from "../identity/api";
+import { HomePriorities } from "../inbox/inbox";
+import { useActivityReturn } from "../workspace/activity-return";
 import {
   Breadcrumbs,
   DateComparison,
@@ -157,6 +159,7 @@ export function ProjectDirectory({
 export function PlanningProject() {
   const { key, api, workspace } = usePlanning();
   const { projectId } = useParams();
+  const activityReturn = useActivityReturn(workspace.id);
   const location = useLocation();
   const query = useQuery({
     queryKey: [...key, "project", projectId],
@@ -205,6 +208,7 @@ export function PlanningProject() {
     <div className="project-page">
       <ProjectHeader
         project={project}
+        compact
         action={
           details.archived ? (
             <StatusLabel>Archived project</StatusLabel>
@@ -222,6 +226,12 @@ export function PlanningProject() {
           )
         }
       />
+      {activityReturn &&
+        !location.pathname.includes(`${projectPath(details.id)}/work/`) && (
+          <Link className="activity-return" to={activityReturn}>
+            Back to activity
+          </Link>
+        )}
       <Outlet context={{ project, details } satisfies LiveProjectContext} />
     </div>
   );
@@ -291,6 +301,12 @@ export function PlanningOverview() {
       >
         <RiskOverview />
       </Suspense>
+      {!details.archived && (
+        <HomePriorities
+          projectId={project.id}
+          showReviews={details.role === "lead"}
+        />
+      )}
       <DiscussionPanel
         projectId={project.id}
         subject={{ kind: "project", id: project.id }}

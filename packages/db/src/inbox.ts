@@ -42,9 +42,14 @@ export function inboxStore(client: Sql) {
         return row?.value;
       });
     },
-    home([actor, workspace]: [string, string], sort: "age" | "milestone") {
+    home(
+      [actor, workspace]: [string, string],
+      sort: "age" | "milestone",
+      project?: string,
+    ) {
       return scoped(actor, workspace, async (sql) => {
-        const [row] = await sql`SELECT kordos_inbox.home(${sort}) AS value`;
+        const [row] =
+          await sql`SELECT kordos_inbox.priorities(${sort},${project ?? null}) AS value`;
         return row?.value;
       });
     },

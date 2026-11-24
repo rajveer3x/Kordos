@@ -18,6 +18,7 @@ const workspaceParams = z.object({ workspaceId: idSchema });
 const entryParams = workspaceParams.extend({ id: idSchema });
 const homeQuery = z.object({
   sort: z.enum(["age", "milestone"]).default("age"),
+  projectId: idSchema.optional(),
 });
 const preferenceResult = z.discriminatedUnion("result", [
   z.object({ result: z.literal("invalid") }),
@@ -97,8 +98,8 @@ export function registerInbox(
   api.get(workspace + "/home", async (request) => {
     const actor = await requireActor(request);
     const { workspaceId } = parse(workspaceParams, request.params);
-    const { sort } = parse(homeQuery, request.query);
-    const value = await db.home([actor, workspaceId], sort);
+    const { sort, projectId } = parse(homeQuery, request.query);
+    const value = await db.home([actor, workspaceId], sort, projectId);
     if (!value) throw unavailable();
     return inboxHomeSchema.parse(value);
   });

@@ -197,6 +197,20 @@
     radial-gradient(ellipse at 97% 100%, #cfeaf4 0, transparent 57%);
 }
 
+.project-heading--compact {
+  min-block-size: 0;
+  grid-template-columns: minmax(0, 1fr) clamp(185px, 22%, 240px);
+  background-image: radial-gradient(
+    ellipse at 94% 12%,
+    #e8defb,
+    transparent 62%
+  );
+}
+
+.project-heading--compact .project-heading__content {
+  padding-block: clamp(18px, 2.4vw, 32px);
+}
+
 .project-heading__content {
   display: grid;
   justify-items: start;
@@ -602,7 +616,8 @@ html:has(.sheet[open]) {
     min-block-size: 54px;
     padding-block: var(--space-1);
   }
-  .project-heading {
+  .project-heading,
+  .project-heading--compact {
     min-block-size: auto;
     grid-template-columns: minmax(0, 1fr);
     background-image: radial-gradient(
@@ -678,4 +693,9 @@ html:has(.sheet[open]) {
   .sheet[open] {
     animation: none;
   }
+}
+
+.activity-return {
+  display: inline-block;
+  margin-block: var(--space-2);
 }

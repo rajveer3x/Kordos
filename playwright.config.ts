@@ -40,6 +40,7 @@ export default defineConfig({
         "**/calendar-and-gmail.spec.ts",
         "**/hybrid-search.spec.ts",
         "**/health-and-duplicates.spec.ts",
+        "**/workspace-activity.spec.ts",
       ],
     },
     {
@@ -129,6 +130,12 @@ export default defineConfig({
       name: "project-health",
       testMatch: "**/health-and-duplicates.spec.ts",
       dependencies: ["search"],
+      use: { actionTimeout: 10_000 },
+    },
+    {
+      name: "workspace-activity",
+      testMatch: "**/workspace-activity.spec.ts",
+      dependencies: ["project-health"],
       use: { actionTimeout: 10_000 },
     },
   ],

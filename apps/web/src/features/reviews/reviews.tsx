@@ -28,6 +28,7 @@ import {
   usePlanningCommand,
 } from "../planning/planning-client";
 import { WorkEditor } from "../planning/work-editor";
+import { useActivityReturn } from "../workspace/activity-return";
 import { projectPath, workspacePath } from "../workspace/workspace-model";
 import { ReviewDiff } from "./review-diff";
 import "./reviews.css";
@@ -225,6 +226,7 @@ export function ReviewPage() {
   const { proposalId } = useParams();
   const [search] = useSearchParams();
   const { api, key, workspace } = usePlanning();
+  const activityReturn = useActivityReturn(workspace.id);
   const path = `${api}/proposals/${proposalId}`;
   const head = workspacePath(`/reviews/${proposalId}`, workspace.id);
   const query = search.toString();
@@ -242,7 +244,11 @@ export function ReviewPage() {
   return (
     <div className="standard-page review-detail">
       <title>Review change · Kordos</title>
-      <Link to={workspacePath("/reviews", workspace.id)}>All reviews</Link>
+      {activityReturn ? (
+        <Link to={activityReturn}>Back to activity</Link>
+      ) : (
+        <Link to={workspacePath("/reviews", workspace.id)}>All reviews</Link>
+      )}
       {result.isPending ? (
         <AsyncState kind="loading" message="Loading proposal…" />
       ) : result.isError ? (
