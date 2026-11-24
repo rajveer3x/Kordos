@@ -31,6 +31,10 @@ import { WorkspaceShell } from "./features/workspace/workspace-shell";
 import "./styles.css";
 import "./features/workspace/workspace.css";
 
+const WeeklyHealth = lazy(
+  () => import("./features/project-health/weekly-health"),
+);
+const Duplicates = lazy(() => import("./features/project-health/duplicates"));
 const SearchPage = lazy(() => import("./features/search/search-page"));
 const ProjectGraph = lazy(() => import("./features/planning/project-graph"));
 const ProjectKnowledge = lazy(() => import("./features/knowledge/routes"));
@@ -231,6 +235,22 @@ export function WorkspaceRoutes({
                 element={
                   <LazyPage>
                     <BriefJobPage />
+                  </LazyPage>
+                }
+              />
+              <Route
+                path="weekly-health"
+                element={
+                  <LazyPage>
+                    <WeeklyHealth />
+                  </LazyPage>
+                }
+              />
+              <Route
+                path="duplicates/:workId"
+                element={
+                  <LazyPage>
+                    <Duplicates />
                   </LazyPage>
                 }
               />

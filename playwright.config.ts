@@ -39,6 +39,7 @@ export default defineConfig({
         "**/github-activity-and-actions.spec.ts",
         "**/calendar-and-gmail.spec.ts",
         "**/hybrid-search.spec.ts",
+        "**/health-and-duplicates.spec.ts",
       ],
     },
     {
@@ -122,6 +123,12 @@ export default defineConfig({
       name: "search",
       testMatch: "**/hybrid-search.spec.ts",
       dependencies: ["google"],
+      use: { actionTimeout: 10_000 },
+    },
+    {
+      name: "project-health",
+      testMatch: "**/health-and-duplicates.spec.ts",
+      dependencies: ["search"],
       use: { actionTimeout: 10_000 },
     },
   ],

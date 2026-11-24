@@ -276,6 +276,7 @@ export function PlanningOverview() {
         </p>
         <div className="planning-actions">
           <Link to={`${base}/work`}>View project work</Link>
+          <Link to={`${base}/weekly-health`}>Weekly health</Link>
           <Link className="button button--secondary" to={`${base}/briefs`}>
             {details.archived || details.role === "viewer"
               ? "View briefs"

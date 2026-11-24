@@ -1,8 +1,8 @@
 # Delivery tracker
 
-**Current state** — Features 01 through 16 are verified locally.
+**Current state** — Features 01 through 17 are verified locally.
 
-**Next ready feature** — [17 · Weekly health and duplicate review](feature-specs/17-health-and-duplicates.md). Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
+**Next ready feature** — [18 · Workspace home and activity history](feature-specs/18-workspace-home-and-activity.md). Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
 
 | ID | Feature prompt | Depends on | State | Evidence |
 |---|---|---|---|---|
@@ -22,7 +22,7 @@
 | 14 | [GitHub activity and approved comments](feature-specs/14-github-activity-and-actions.md) | 08, 13 | Done | Webhook convergence, destination revocation and one reconciled publication passed. See [Feature 14 evidence](#feature-14-evidence). |
 | 15 | [Calendar events and shared email](feature-specs/15-calendar-and-gmail.md) | 11, 13 | Done | Calendar cancellation, per-message excerpt sharing and recovery from both expired cursors passed. See [Feature 15 evidence](#feature-15-evidence). |
 | 16 | [Permission-aware hybrid search](feature-specs/16-hybrid-search.md) | 07, 11, 14, 15 | Done | Semantic retrieval, exact IDs during an outage, cited disagreement and immediate revocation passed. See [Feature 16 evidence](#feature-16-evidence). |
-| 17 | [Weekly health and duplicate review](feature-specs/17-health-and-duplicates.md) | 08, 10, 12, 16 | Pending | — |
+| 17 | [Weekly health and duplicate review](feature-specs/17-health-and-duplicates.md) | 08, 10, 12, 16 | Done | Commitment slack, historical evidence revocation, versioned dismissal and cycle-safe consolidation passed. See [Feature 17 evidence](#feature-17-evidence). |
 | 18 | [Workspace home and activity history](feature-specs/18-workspace-home-and-activity.md) | 10, 11, 12, 14, 17 | Pending | — |
 | 19 | [Retention and access lifecycle](feature-specs/19-privacy-and-retention.md) | 13, 15, 16, 17, 18 | Pending | — |
 | 20 | [Deployment and recovery](feature-specs/20-operability-and-delivery.md) | 12, 14, 15, 19 | Pending | — |
@@ -334,3 +334,21 @@ Verified locally on 2026-11-24 with Node 26.5.0, pnpm 10.34.9, Chromium, loopbac
 Keyword and exact-ID search use the local index. Semantic ranking and cited passage selection use separately configured model settings. Live model verification remains a staging check. The release-scale workload remains part of Feature 22. See [workspace search setup](../README.md#workspace-search).
 
 All local Feature 16 acceptance checks passed. Feature 17 is ready.
+
+
+## Feature 17 evidence
+
+Verified locally on 2026-11-24 with Node 26.5.0, pnpm 10.34.9, Chromium, loopback OIDC and isolated PostgreSQL, Redis and S3-compatible storage.
+
+| Check | Result |
+|---|---|
+| `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm build`, `git diff --check` | Passed, including 17 Vitest tests. The build reported the existing Zod annotation and Vite entry-chunk warnings. |
+| `pnpm db:migrate` twice and `pnpm db:generate` | Fresh and repeat migrations passed. Drizzle found no schema changes. A populated Feature 16 upgrade preserved a restricted project, its work and its pending proposal. The existing approval applied through the worker after the upgrade. The local Compose migration preserved the project, work, proposal and document counts. |
+| `pnpm test:e2e --workers=3 --trace=on --output=test-results/feature-17-full` | All 23 existing browser tests passed. The new journey reached consolidation and stopped at an invalid discussion fixture. |
+| `pnpm test:e2e --project=project-health --no-deps --trace=on --output=test-results/feature-17-final` | The [Feature 17 journey](../tests/e2e/health-and-duplicates.spec.ts) passed with the corrected fixture and final UI. It checked report reflow at 1440, 1024, 390 and 320 CSS px and duplicate review at 320 px. Reviewed desktop and mobile report screenshots and the mobile duplicate comparison. |
+| Weekly health and evidence | A late handoff left its milestone on track with six working days of commitment slack. A missing predecessor estimate produced a provisional forecast with unknown slack. The report linked work and completion events, and the cited review opened its permitted evidence. Revoking restricted source access removed the affected decision request from a saved historical report while an authorized lead could still read it. The app role was denied raw snapshots and report job claims. |
+| Duplicate review and consolidation | Dismissal persisted in both directions for the same revisions. A task edit made the pair eligible again. The related link appeared from the other task. Concurrent approvals returned one receipt, and repeated worker application produced no second effect. Consolidation preserved the archived task, its discussion and audit history, plus original and redirected dependencies. A graph edit after approval made a queued consolidation stale, and a fresh proposal for the cyclic pair returned 409. |
+
+Reports use Monday-start weeks in each project’s time zone and retain the last successful capture for each week. Duplicate suggestions use local lexical retrieval for open tasks in the same project. See [weekly health and duplicate review](../README.md#weekly-health-and-duplicate-review).
+
+All Feature 17 acceptance checks passed locally. Feature 18 is ready.

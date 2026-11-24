@@ -89,6 +89,12 @@ function saved(value: { result: string; cycle?: string[] }, current?: unknown) {
         "The work item changed. Open the latest work version and revise the proposal.",
         current,
       );
+    case "consolidation_stale":
+      throw new IdentityError(
+        409,
+        "conflict",
+        "The tasks or dependencies changed. Open the latest duplicate comparison before requesting approval.",
+      );
     case "risk_stale":
       throw new IdentityError(
         409,

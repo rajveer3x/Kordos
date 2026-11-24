@@ -1157,7 +1157,7 @@ export const proposalRevisions = pgTable(
     }),
     check(
       "proposal_revisions_command",
-      sql`coalesce(${table.command}->>'kind' IN ('work.edit', 'plan.create', 'meeting.accept', 'github.comment'), false)`,
+      sql`coalesce(${table.command}->>'kind' IN ('work.edit', 'plan.create', 'meeting.accept', 'github.comment', 'work.consolidate'), false)`,
     ),
   ],
 );
@@ -1827,5 +1827,120 @@ export const searchChunks = pgTable(
     index("search_chunk_embedding_queue_idx")
       .on(t.model, t.embedAfter, t.id)
       .where(sql`${t.audience} = 'project'`),
+  ],
+);
+
+export const projectWeeklies = pgTable(
+  "project_weeklies",
+  {
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    period: date().notNull(),
+    generatedAt: timestamp("generated_at", { withTimezone: true }).notNull(),
+    snapshot: jsonb().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.workspaceId, table.projectId, table.period] }),
+    foreignKey({
+      name: "project_weeklies_project_fk",
+      columns: [table.workspaceId, table.projectId],
+      foreignColumns: [projects.workspaceId, projects.id],
+    }).onDelete("cascade"),
+  ],
+);
+
+export const workRelations = pgTable(
+  "work_relations",
+  {
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    firstId: uuid("first_id").notNull(),
+    secondId: uuid("second_id").notNull(),
+    consolidatedInto: uuid("consolidated_into"),
+  },
+  (table) => [
+    primaryKey({
+      columns: [
+        table.workspaceId,
+        table.projectId,
+        table.firstId,
+        table.secondId,
+      ],
+    }),
+    index("work_relations_second_idx").on(
+      table.workspaceId,
+      table.projectId,
+      table.secondId,
+    ),
+    foreignKey({
+      name: "work_relations_first_fk",
+      columns: [table.workspaceId, table.projectId, table.firstId],
+      foreignColumns: [
+        workItems.workspaceId,
+        workItems.projectId,
+        workItems.id,
+      ],
+    }),
+    foreignKey({
+      name: "work_relations_second_fk",
+      columns: [table.workspaceId, table.projectId, table.secondId],
+      foreignColumns: [
+        workItems.workspaceId,
+        workItems.projectId,
+        workItems.id,
+      ],
+    }),
+    check("work_relations_ordered", sql`${table.firstId} < ${table.secondId}`),
+    check(
+      "work_relations_target",
+      sql`${table.consolidatedInto} IN (${table.firstId}, ${table.secondId})`,
+    ),
+  ],
+);
+
+export const duplicateDismissals = pgTable(
+  "duplicate_dismissals",
+  {
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    firstId: uuid("first_id").notNull(),
+    secondId: uuid("second_id").notNull(),
+    firstVersion: integer("first_version").notNull(),
+    secondVersion: integer("second_version").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      name: "duplicate_dismissals_pk",
+      columns: [
+        table.workspaceId,
+        table.projectId,
+        table.firstId,
+        table.secondId,
+        table.firstVersion,
+        table.secondVersion,
+      ],
+    }),
+    foreignKey({
+      name: "duplicate_dismissals_first_fk",
+      columns: [table.workspaceId, table.projectId, table.firstId],
+      foreignColumns: [
+        workItems.workspaceId,
+        workItems.projectId,
+        workItems.id,
+      ],
+    }),
+    foreignKey({
+      name: "duplicate_dismissals_second_fk",
+      columns: [table.workspaceId, table.projectId, table.secondId],
+      foreignColumns: [
+        workItems.workspaceId,
+        workItems.projectId,
+        workItems.id,
+      ],
+    }),
+    check(
+      "duplicate_dismissals_ordered",
+      sql`${table.firstId} < ${table.secondId}`,
+    ),
   ],
 );

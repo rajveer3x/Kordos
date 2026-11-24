@@ -8,6 +8,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useState } from "react";
 import {
+  Link,
   useLocation,
   useNavigate,
   useOutletContext,
@@ -15,7 +16,7 @@ import {
 } from "react-router";
 import { Sheet } from "../../components/sheet";
 import { AsyncState, Button, StatusLabel } from "../../components/ui";
-import { workspacePath } from "../workspace/workspace-model";
+import { projectPath, workspacePath } from "../workspace/workspace-model";
 import { GitHubActivity } from "../connectors/github-activity";
 import { DiscussionPanel } from "../collaboration/discussion-panel";
 import { denied, read } from "../identity/api";
@@ -310,6 +311,18 @@ function WorkDetails({
             {notice || command.notice}
           </p>
         </>
+      )}
+      {item.kind === "task" && (
+        <Link
+          to={workspacePath(
+            `${projectPath(item.projectId)}/duplicates/${item.id}`,
+            workspace.id,
+          )}
+        >
+          {item.archived || item.status === "done"
+            ? "Related work"
+            : "Review similar tasks"}
+        </Link>
       )}
       <GitHubActivity projectId={item.projectId} workId={item.id} />
       <DiscussionPanel

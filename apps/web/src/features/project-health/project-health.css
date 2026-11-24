@@ -1,0 +1,115 @@
+.project-health-panel {
+  min-width: 0;
+  margin-block-start: 12px;
+  overflow-wrap: anywhere;
+}
+
+.project-health-period {
+  display: grid;
+  gap: 4px;
+  min-width: min(180px, 100%);
+  font-size: 0.875rem;
+}
+
+.project-health-period select {
+  min-height: 44px;
+  padding: 0 8px;
+  border: 1px solid var(--control-outline);
+  border-radius: 10px;
+  color: var(--ink);
+  background: var(--surface);
+  font: inherit;
+}
+
+.project-health-group {
+  display: grid;
+  gap: 8px;
+  margin-block-start: 24px;
+}
+
+.project-health-group h3,
+.project-health-comparison h3,
+.project-health-comparison h4 {
+  margin: 0;
+}
+
+.project-health-group details,
+.project-health-consolidate {
+  padding: 8px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.project-health-panel summary {
+  cursor: pointer;
+  width: fit-content;
+  min-height: 28px;
+  align-content: center;
+  font-weight: 600;
+}
+
+.project-health-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.project-health-list > li {
+  padding: 16px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.project-health-list dl {
+  margin-block-end: 0;
+}
+
+.project-health-list .planning-facts {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.project-health-task-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-block: 16px;
+}
+
+.project-health-task-columns > div {
+  padding: 12px;
+  background: var(--inset);
+  border-radius: 10px;
+}
+
+.project-health-task-facts {
+  display: grid;
+  gap: 8px;
+}
+
+.project-health-task-facts dt {
+  font-weight: 600;
+}
+
+.project-health-task-facts dd {
+  margin: 0;
+}
+
+.project-health-task-facts ul {
+  padding-inline-start: 20px;
+  margin: 0;
+}
+
+@media (max-width: 767px) {
+  .project-health-list .planning-facts,
+  .project-health-task-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .project-health-panel summary {
+    min-height: 44px;
+  }
+}

@@ -8,6 +8,7 @@ import { idSchema } from "./identity.js";
 import { citationSchema, resolvedCitationSchema } from "./knowledge.js";
 import { meetingItemValuesSchema } from "./meetings.js";
 import { personSchema, workFieldsSchema } from "./planning.js";
+import { consolidationSchema } from "./project-health.js";
 
 const version = z.number().int().positive().max(2147483647);
 const instant = z.iso.datetime({ offset: true });
@@ -129,6 +130,7 @@ export const proposalDetailSchema = z.discriminatedUnion("kind", [
   }),
   detail.extend({
     ...workTarget,
+    consolidation: consolidationSchema.optional(),
     before: workFieldsSchema.nullable(),
     after: workFieldsSchema.nullable(),
   }),

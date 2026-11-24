@@ -75,6 +75,12 @@ function saved({
         "conflict",
         "This request was already used. Review the latest changes and try again.",
       );
+    case "consolidated":
+      throw new IdentityError(
+        409,
+        "invalid_state",
+        "This task was consolidated. Open its related work to find the active task.",
+      );
     case "invalid_state":
       throw new IdentityError(
         409,

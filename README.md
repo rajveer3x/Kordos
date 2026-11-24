@@ -132,3 +132,9 @@ The worker uses `BRIEF_WORKER_DATABASE_URL` to backfill the text index and proce
 Set `OPENAI_SEARCH_ANSWER_MODEL` in the API to enable cited passage selection with a Chat Completions model that supports structured outputs. The API sends the question and up to eight currently authorized passages. The answer displays verbatim source text with attribution, dates and links. When evidence is insufficient or the model is unavailable, the answer shows the available passages. The search adapters use `OPENAI_BASE_URL` unless `OPENAI_SEARCH_BASE_URL` is set.
 
 Run `pnpm test:e2e --project=search --no-deps` for the browser journey and loopback model fixture. Set `TEST_SEARCH_MODEL_PORT` to override port 4496.
+
+## Weekly health and duplicate review
+
+Open **Weekly health** from a project overview. The worker uses `BRIEF_WORKER_DATABASE_URL` to capture each active project's report in its own time zone. Weeks start on Monday. A report becomes eligible for refresh after one minute, and the last successful capture remains available for each week. Decision links are checked against the reader's current access. Weekly reports and duplicate retrieval use local data and need no model credentials.
+
+Open **Review similar tasks** from a task. Suggestions compare open work in the same project by title and deliverable wording, with owners and dependencies visible for comparison. Dismissal applies to the two reviewed task versions. A consolidation proposal names the task to keep and the exact dependencies to add. A project lead must approve it before the worker archives and links the other task. Both histories stay available through the work items.

@@ -11,6 +11,7 @@ import { inboxStore } from "./inbox.js";
 import { identityStore } from "./identity.js";
 import { meetingsStore } from "./meetings.js";
 import { knowledgeStore } from "./knowledge.js";
+import { projectHealthStore } from "./project-health.js";
 import { planningStore } from "./planning.js";
 import { risksStore } from "./risks.js";
 import { searchStore } from "./search.js";
@@ -21,6 +22,7 @@ export { connectConnectorWorker, type ConnectorBatch } from "./connectors.js";
 export * from "./connector-credentials.js";
 export { connectInboxWorker, type InboxEmailJob } from "./inbox.js";
 export { connectMeetingWorker } from "./meetings.js";
+export { connectHealthWorker } from "./project-health.js";
 export { connectSearchWorker } from "./search.js";
 export { connectBriefWorker } from "./briefs.js";
 export { setDatabaseScope } from "./identity.js";
@@ -71,6 +73,7 @@ export function connectDatabase(url: string) {
     identity: identityStore(client),
     inbox: inboxStore(client),
     planning: planningStore(client),
+    projectHealth: projectHealthStore(client),
     reviews: reviewsStore(client),
     risks: risksStore(client),
     forecast: forecastStore(client),

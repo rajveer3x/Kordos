@@ -22,6 +22,7 @@ import { registerForecast } from "../planning/forecast-routes.js";
 import { registerPlanning } from "../planning/routes.js";
 import { registerBriefs } from "../briefs/routes.js";
 import { registerMeetings } from "../meetings/routes.js";
+import { registerProjectHealth } from "../project-health/routes.js";
 import { registerRisks } from "../risks/routes.js";
 import { registerReviews } from "../reviews/routes.js";
 import { registerSearch } from "../search/routes.js";
@@ -46,6 +47,7 @@ export function registerIdentity(
     | "knowledge"
     | "meetings"
     | "reviews"
+    | "projectHealth"
     | "risks"
     | "briefs"
     | "search"
@@ -144,6 +146,7 @@ export function registerIdentity(
         );
       registerReviews(api, stores, requireActor);
       registerRisks(api, stores.risks, requireActor);
+      registerProjectHealth(api, stores.projectHealth, requireActor);
       registerBriefs(api, stores.briefs, requireActor);
       registerForecast(api, stores.forecast, requireActor);
       registerCollaboration(api, stores.collaboration, requireActor);

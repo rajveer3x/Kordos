@@ -26,6 +26,7 @@ import { startConnectors } from "./connectors/worker.js";
 import { startInbox } from "./inbox.js";
 import { startMeetings } from "./meetings.js";
 import { startSearch } from "./search.js";
+import { runProjectHealth } from "./project-health.js";
 import { startRisks } from "./risks.js";
 import { startApprovals } from "./approvals.js";
 
@@ -315,6 +316,9 @@ async function dispatchPendingJobs(signal: AbortSignal) {
 }
 
 const dispatcher = dispatchPendingJobs(shutdown.signal);
+const weeklyHealth = settings.BRIEF_WORKER_DATABASE_URL
+  ? runProjectHealth(settings.BRIEF_WORKER_DATABASE_URL, shutdown.signal)
+  : undefined;
 
 async function stop() {
   if (shutdown.signal.aborted) return;
@@ -329,6 +333,7 @@ async function stop() {
       meetings?.close(),
       connectors?.close(),
       inbox,
+      weeklyHealth,
       search,
     ]);
     await queue.close();

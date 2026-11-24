@@ -52,6 +52,11 @@ function projectCalendar(calendar: ScheduleCalendar) {
     return day;
   }
 
+  function lastOpening(day: number) {
+    while (!workdays.has(weekday(day)) || holidaySet.has(day)) day--;
+    return day;
+  }
+
   // Both endpoints are nominal workdays. Skip whole weeks, then account for
   // any holidays crossed, including holidays crossed by the correction.
   function shift(day: number, days: number) {
@@ -96,7 +101,16 @@ function projectCalendar(calendar: ScheduleCalendar) {
     return dayNumber(formatBusinessDate(local, new Date(instant)));
   }
 
-  return { opening, shift, distance, actualDay };
+  return { opening, lastOpening, shift, distance, actualDay };
+}
+
+export function commitmentSlack(
+  calendar: ScheduleCalendar,
+  finish: string,
+  commitment: string,
+) {
+  const { distance, lastOpening } = projectCalendar(calendar);
+  return distance(dayNumber(finish), lastOpening(dayNumber(commitment)));
 }
 
 export function dependencyPath(
@@ -155,7 +169,8 @@ export function calculateForecast(
   changes: readonly ScheduleChange[] = [],
 ): NodeForecast[] {
   const { items, edges, calendar, asOf } = schedule;
-  const { opening, shift, distance, actualDay } = projectCalendar(calendar);
+  const { opening, lastOpening, shift, distance, actualDay } =
+    projectCalendar(calendar);
   const today = opening(dayNumber(asOf));
   const overrides = new Map(changes.map((change) => [change.workId, change]));
   const nodes = new Map<string, Node>(
@@ -249,9 +264,8 @@ export function calculateForecast(
     if (node.item.kind === "milestone") {
       const commitment =
         node.item.commitment && dayNumber(node.item.commitment);
-      let target = commitment ? Math.min(node.start, commitment) : node.start;
-      while (opening(target) !== target) target--;
-      node.latest = target;
+      const target = commitment ? Math.min(node.start, commitment) : node.start;
+      node.latest = lastOpening(target);
       node.slackUncertain = node.provisional;
     }
     for (const child of node.children) {

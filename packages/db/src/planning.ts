@@ -22,6 +22,7 @@ type CommandResult =
         | "conflict"
         | "mutation_conflict"
         | "invalid_state"
+        | "consolidated"
         | "commitment_requires_lead"
         | "invalid_owner"
         | "invalid_role"

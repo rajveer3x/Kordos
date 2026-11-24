@@ -31,37 +31,7 @@ export async function readSchedule(
   const [row] = await sql<
     (Omit<Snapshot, "asOf"> & { readAtMillis: number })[]
   >`
-    WITH items AS MATERIALIZED (
-      SELECT id, title, kind, status, version, estimate_days, commitment, completed_at, owner_id
-      FROM public.work_items
-      WHERE workspace_id = ${workspace} AND project_id = ${project} AND archived_at IS NULL
-    )
-    SELECT p.graph_version AS "graphVersion", p.archived_at IS NOT NULL AS archived,
-      (extract(epoch FROM statement_timestamp()) * 1000)::float8 AS "readAtMillis",
-      kordos_planning.schedule_fingerprint(p.id, p.version, p.graph_version, work.revisions)
-        AS "inputRevision",
-      jsonb_build_object(
-        'timeZone', p.time_zone, 'workdays', p.workdays, 'nonworkingDates', p.nonworking_dates
-      ) AS calendar,
-      coalesce(work.items, '[]'::jsonb) AS items,
-      coalesce((
-        SELECT jsonb_agg(jsonb_build_object('predecessorId', e.predecessor_id, 'successorId', e.successor_id)
-          ORDER BY e.predecessor_id, e.successor_id)
-        FROM public.dependency_edges e JOIN items a ON a.id = e.predecessor_id JOIN items b ON b.id = e.successor_id
-        WHERE e.workspace_id = p.workspace_id AND e.project_id = p.id
-      ), '[]'::jsonb) AS edges
-    FROM public.projects p
-    CROSS JOIN LATERAL (
-      SELECT jsonb_agg(jsonb_build_object(
-        'id', i.id, 'title', i.title, 'kind', i.kind, 'status', i.status, 'version', i.version,
-        'estimateDays', i.estimate_days, 'commitment', i.commitment,
-        'completedAt', to_char(i.completed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
-        'owner', kordos_planning.person(p.id, i.owner_id)
-      ) ORDER BY i.title, i.id) AS items,
-      jsonb_agg(jsonb_build_array(i.id, i.version) ORDER BY i.id) AS revisions
-      FROM items i
-    ) work
-    WHERE p.workspace_id = ${workspace} AND p.id = ${project}
+    SELECT * FROM kordos_planning.read_schedule(${workspace}, ${project})
   `;
   if (!row) return;
   const { readAtMillis, ...snapshot } = row;

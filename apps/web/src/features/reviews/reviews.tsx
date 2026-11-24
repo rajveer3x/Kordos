@@ -301,6 +301,8 @@ function ReviewDetails({
             `${projectBase}/documents/sources/${proposal.githubSourceId}?revision=${proposal.targetVersion}`
           : `${projectBase}/work/${proposal.workId}`;
   const receipt = proposal.receipt;
+  const consolidation =
+    "consolidation" in proposal ? proposal.consolidation : undefined;
   const targetChanged =
     current &&
     proposal.kind !== "github" &&
@@ -333,13 +335,15 @@ function ReviewDetails({
     <>
       <PageHeading
         title={
-          proposal.kind === "plan"
-            ? `Plan from ${proposal.title}`
-            : proposal.kind === "meeting"
-              ? `Review ${proposal.meetingItem?.kind ?? "follow-up"} · ${proposal.title}`
-              : proposal.kind === "github"
-                ? "Publish GitHub comment"
-                : `Edit ${proposal.kind} · ${proposal.before?.title ?? proposal.title}`
+          consolidation
+            ? `Consolidate tasks · ${consolidation.keep.title}`
+            : proposal.kind === "plan"
+              ? `Plan from ${proposal.title}`
+              : proposal.kind === "meeting"
+                ? `Review ${proposal.meetingItem?.kind ?? "follow-up"} · ${proposal.title}`
+                : proposal.kind === "github"
+                  ? "Publish GitHub comment"
+                  : `Edit ${proposal.kind} · ${proposal.before?.title ?? proposal.title}`
         }
       />
       <section className="glass-panel planning-panel">
@@ -410,6 +414,15 @@ function ReviewDetails({
             </div>
           )}
         </dl>
+        {consolidation && proposal.status === "stale" && (
+          <p className="planning-conflict">
+            The tasks or dependencies changed.{" "}
+            <Link to={`${projectBase}/duplicates/${consolidation.keep.id}`}>
+              Review the latest comparison
+            </Link>
+            .
+          </p>
+        )}
         {proposal.riskContext && (
           <div className="planning-actions">
             {proposal.riskContext.stale && (
@@ -432,7 +445,7 @@ function ReviewDetails({
           </p>
         )}
         {proposal.reason && <p className="review-reason">{proposal.reason}</p>}
-        {targetChanged && (
+        {targetChanged && !consolidation && (
           <p className="planning-conflict">
             The work item is now at version {proposal.currentTargetVersion}.
             Review the latest work version and revise this proposal.
@@ -440,7 +453,9 @@ function ReviewDetails({
         )}
         {current && proposal.status === "expired" && !receipt && (
           <p className="planning-conflict">
-            This proposal expired. Revise it and submit it for a new review.
+            {consolidation
+              ? "This proposal expired. Open the duplicate comparison to submit a new proposal."
+              : "This proposal expired. Revise it and submit it for a new review."}
           </p>
         )}
         {proposal.status === "reconciliation_required" && (
@@ -457,15 +472,68 @@ function ReviewDetails({
         )}
         <section className="review-section">
           <h2>
-            {proposal.kind === "plan"
-              ? "Proposed tasks and dependencies"
-              : proposal.kind === "meeting"
-                ? "Proposed follow-up"
-                : proposal.kind === "github"
-                  ? "GitHub destination and comment"
-                  : "Work item changes"}
+            {consolidation
+              ? "Consolidation plan"
+              : proposal.kind === "plan"
+                ? "Proposed tasks and dependencies"
+                : proposal.kind === "meeting"
+                  ? "Proposed follow-up"
+                  : proposal.kind === "github"
+                    ? "GitHub destination and comment"
+                    : "Work item changes"}
           </h2>
-          {proposal.kind === "github" && proposal.githubComment ? (
+          {consolidation ? (
+            <>
+              <dl className="planning-facts">
+                <div>
+                  <dt>Keep</dt>
+                  <dd>
+                    <Link to={`${projectBase}/work/${consolidation.keep.id}`}>
+                      {consolidation.keep.title}
+                    </Link>{" "}
+                    · Version {consolidation.keep.version}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Archive</dt>
+                  <dd>
+                    <Link
+                      to={`${projectBase}/work/${consolidation.archive.id}`}
+                    >
+                      {consolidation.archive.title}
+                    </Link>{" "}
+                    · Version {consolidation.archive.version}
+                  </dd>
+                </div>
+              </dl>
+              <p>
+                The retained task keeps its current fields. The archived task
+                keeps its description, discussion and history.
+              </p>
+              <h3>Dependencies to add</h3>
+              {consolidation.dependencies.length > 0 ? (
+                <ul>
+                  {consolidation.dependencies.map((edge) => (
+                    <li key={`${edge.predecessorId}:${edge.successorId}`}>
+                      <Link to={`${projectBase}/work/${edge.predecessorId}`}>
+                        {edge.predecessorTitle}
+                      </Link>
+                      {" → "}
+                      <Link to={`${projectBase}/work/${edge.successorId}`}>
+                        {edge.successorTitle}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No new dependencies are needed.</p>
+              )}
+              <Link to={`${projectBase}/graph`}>
+                Open dependency graph · Reviewed revision{" "}
+                {consolidation.graphVersion}
+              </Link>
+            </>
+          ) : proposal.kind === "github" && proposal.githubComment ? (
             <>
               <dl className="planning-facts">
                 <div>
@@ -578,7 +646,7 @@ function ReviewDetails({
             </p>
           )}
         </section>
-        {proposal.kind !== "github" && (
+        {proposal.kind !== "github" && !consolidation && (
           <section className="review-section">
             <h2>Evidence</h2>
             {(proposal.kind === "plan"
@@ -635,13 +703,15 @@ function ReviewDetails({
                     workspace.id,
                   )}
                 >
-                  {proposal.kind === "plan"
-                    ? "Open applied plan in audit history"
-                    : proposal.kind === "meeting"
-                      ? "Open approved follow-up in audit history"
-                      : proposal.kind === "github"
-                        ? "Open publication in audit history"
-                        : "Open applied work edit"}
+                  {consolidation
+                    ? "Open applied consolidation"
+                    : proposal.kind === "plan"
+                      ? "Open applied plan in audit history"
+                      : proposal.kind === "meeting"
+                        ? "Open approved follow-up in audit history"
+                        : proposal.kind === "github"
+                          ? "Open publication in audit history"
+                          : "Open applied work edit"}
                 </Link>
               )}
             </div>
@@ -731,11 +801,13 @@ function ReviewDetails({
                   disabled={command.busy}
                   onClick={() => review("approve")}
                 >
-                  {proposal.kind === "plan"
-                    ? "Approve plan"
-                    : proposal.kind === "github"
-                      ? "Approve comment"
-                      : "Approve change"}
+                  {consolidation
+                    ? "Approve consolidation"
+                    : proposal.kind === "plan"
+                      ? "Approve plan"
+                      : proposal.kind === "github"
+                        ? "Approve comment"
+                        : "Approve change"}
                 </Button>
               )}
               {proposal.canEdit && (
