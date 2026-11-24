@@ -214,6 +214,20 @@ export function registerKnowledge(
           { abortSignal: AbortSignal.timeout(20_000) },
         );
         if (!response.Body) throw unavailable();
+        const stillAvailable = await db.attachment(
+          actor,
+          where,
+          where.id,
+          where.file,
+        );
+        if (!stillAvailable) {
+          if (
+            "destroy" in response.Body &&
+            typeof response.Body.destroy === "function"
+          )
+            response.Body.destroy();
+          throw unavailable();
+        }
         const filename = encodeURIComponent(object.name).replace(
           /['()*]/g,
           (char) => "%" + char.charCodeAt(0).toString(16).toUpperCase(),

@@ -176,6 +176,7 @@ export const auditEvents = pgTable(
     projectId: uuid("project_id"),
     action: text().notNull(),
     targetId: uuid("target_id").notNull(),
+    redactedAt: timestamp("redacted_at", { withTimezone: true }),
     details: jsonb().$type<Record<string, unknown>>().notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -192,6 +193,9 @@ export const auditEvents = pgTable(
       foreignColumns: [projects.workspaceId, projects.id],
     }),
     index().on(table.workspaceId, table.createdAt),
+    index("audit_events_retention_idx")
+      .on(table.workspaceId, table.createdAt, table.id)
+      .where(sql`${table.redactedAt} IS NULL`),
     index("audit_events_project_activity_idx").on(
       table.workspaceId,
       table.projectId,
@@ -927,12 +931,16 @@ export const meetingTranscripts = pgTable(
     revision: integer().notNull(),
     mediaId: uuid("media_id"),
     authorId: uuid("author_id").notNull(),
+    purgedAt: timestamp("purged_at", { withTimezone: true }),
     segments: jsonb().notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
   (t) => [
+    index("meeting_transcripts_retention_idx")
+      .on(t.workspaceId, t.createdAt, t.meetingId, t.revision)
+      .where(sql`${t.purgedAt} IS NULL`),
     primaryKey({
       name: "meeting_transcripts_pk",
       columns: [t.workspaceId, t.projectId, t.meetingId, t.revision],
@@ -1651,6 +1659,7 @@ export const sourceRevisions = pgTable(
     github: jsonb(),
     calendarStart: timestamp("calendar_start", { withTimezone: true }),
     observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
+    purgedAt: timestamp("purged_at", { withTimezone: true }),
     title: text(),
     body: text(),
     url: text(),
@@ -1664,6 +1673,9 @@ export const sourceRevisions = pgTable(
         table.revision,
       ],
     }),
+    index("source_revisions_retention_idx")
+      .on(table.workspaceId, table.observedAt, table.sourceId, table.revision)
+      .where(sql`${table.purgedAt} IS NULL AND ${table.title} IS NOT NULL`),
     unique().on(table.sourceId, table.revisionKey),
     foreignKey({
       name: "source_revisions_source_fk",
@@ -1691,6 +1703,7 @@ export const connectorShares = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    purgedAt: timestamp("purged_at", { withTimezone: true }),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
   },
   (table) => [
@@ -1714,6 +1727,9 @@ export const connectorShares = pgTable(
       columns: [table.workspaceId, table.sharerId],
       foreignColumns: [memberships.workspaceId, memberships.userId],
     }),
+    index("connector_shares_retention_idx")
+      .on(table.workspaceId, table.revokedAt, table.id)
+      .where(sql`${table.purgedAt} IS NULL AND ${table.revokedAt} IS NOT NULL`),
     index("connector_shares_project_idx").on(
       table.workspaceId,
       table.projectId,
@@ -1947,6 +1963,32 @@ export const duplicateDismissals = pgTable(
     check(
       "duplicate_dismissals_ordered",
       sql`${table.firstId} < ${table.secondId}`,
+    ),
+  ],
+);
+
+export const workspaceRetention = pgTable(
+  "workspace_retention",
+  {
+    workspaceId: uuid("workspace_id")
+      .primaryKey()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    version: integer().notNull().default(1),
+    audioDays: integer("audio_days").notNull().default(90),
+    transcriptDays: integer("transcript_days").notNull().default(365),
+    importedDays: integer("imported_days").notNull().default(365),
+    logDays: integer("log_days").notNull().default(90),
+    accessEpoch: bigint("access_epoch", { mode: "bigint" })
+      .notNull()
+      .default(sql`0`),
+    checkedAt: timestamp("checked_at", { withTimezone: true }),
+  },
+  (table) => [
+    check(
+      "workspace_retention_days",
+      sql`
+      ${table.audioDays} BETWEEN 1 AND 90 AND ${table.transcriptDays} BETWEEN 1 AND 3650
+      AND ${table.importedDays} BETWEEN 1 AND 3650 AND ${table.logDays} BETWEEN 1 AND 365`,
     ),
   ],
 );

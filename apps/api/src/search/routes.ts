@@ -10,8 +10,14 @@ import {
   type SearchResult,
 } from "@kordos/contracts";
 import type { connectDatabase } from "@kordos/db";
-import { searchProvider } from "@kordos/search-model";
+import {
+  modelOperations,
+  modelRequest,
+  searchProvider,
+  withModelOperation,
+} from "@kordos/search-model";
 import type { FastifyInstance, FastifyRequest } from "fastify";
+import type { Redis } from "ioredis";
 import { z } from "zod";
 import type { Config } from "../config.js";
 import { parse, unavailable } from "../identity/http.js";
@@ -53,13 +59,14 @@ function exactId(query: string) {
 }
 
 async function selectEvidence(
-  provider: NonNullable<ReturnType<typeof searchProvider>>,
+  run: ReturnType<typeof modelRequest>,
   model: string,
   question: string,
   evidence: SearchResult[],
+  groq: boolean,
 ) {
   const result = completion.parse(
-    await provider.run("chat/completions", {
+    await run("chat/completions", {
       model,
       messages: [
         {
@@ -97,7 +104,10 @@ async function selectEvidence(
           },
         },
       },
-      max_completion_tokens: 350,
+      max_completion_tokens: groq ? 768 : 350,
+      ...(groq && model.startsWith("openai/gpt-oss-")
+        ? { reasoning_effort: "low" }
+        : {}),
     }),
   );
   return selection.parse(JSON.parse(result.choices[0].message.content));
@@ -108,13 +118,23 @@ export function registerSearch(
   db: ReturnType<typeof connectDatabase>["search"],
   requireActor: (request: FastifyRequest) => Promise<string>,
   config: Config,
+  redis?: Redis,
 ) {
+  const meter = redis && modelOperations(redis, config);
   const provider =
-    config.OPENAI_SEARCH_EMBEDDING_MODEL || config.OPENAI_SEARCH_ANSWER_MODEL
+    !config.groq &&
+    (config.OPENAI_SEARCH_EMBEDDING_MODEL || config.OPENAI_SEARCH_ANSWER_MODEL)
       ? searchProvider(config)
       : undefined;
   const embeddings = provider?.embeddings;
-  const answerModel = config.OPENAI_SEARCH_ANSWER_MODEL;
+  const answerModel = config.groq?.model ?? config.OPENAI_SEARCH_ANSWER_MODEL;
+  const runAnswer = config.groq
+    ? modelRequest({
+        ...config.groq,
+        provider: "groq",
+        timeoutMs: config.OPENAI_SEARCH_TIMEOUT_MS,
+      })
+    : provider?.run;
 
   // Repeat visits and access refreshes can reuse a query vector. Source
   // authorization and result ranking still run against PostgreSQL on every request.
@@ -151,13 +171,18 @@ export function registerSearch(
       throw unavailable();
     const vector = exact
       ? undefined
-      : await embedQuery(actor, workspaceId, input.q);
+      : await withModelOperation(
+          meter,
+          { workspaceId, operationId: request.id },
+          "search_embedding",
+          () => embedQuery(actor, workspaceId, input.q),
+        );
     async function retrieve() {
       const results = await db.query(actor, workspaceId, input, exact, vector);
       if (!results) throw unavailable();
       return results;
     }
-    return { results: await retrieve(), retrieve };
+    return { results: await retrieve(), retrieve, workspaceId };
   }
 
   api.get(search, async (request) => {
@@ -178,7 +203,7 @@ export function registerSearch(
 
   api.post(search + "/answer", async (request) => {
     const input = parse(searchQuerySchema, request.body);
-    const { results, retrieve } = await execute(request, input);
+    const { results, retrieve, workspaceId } = await execute(request, input);
     const fallback = (items: SearchResult[]) =>
       searchAnswerSchema.parse({
         status: "insufficient",
@@ -189,16 +214,23 @@ export function registerSearch(
       .slice(0, 8);
     if (
       results.mode === "exact" ||
-      !provider ||
+      !runAnswer ||
       !answerModel ||
       eligible.length === 0
     )
       return fallback(results.items);
-    const evidence = await selectEvidence(
-      provider,
-      answerModel,
-      input.q,
-      eligible,
+    const evidence = await withModelOperation(
+      meter,
+      { workspaceId, operationId: request.id },
+      "cited_answer",
+      () =>
+        selectEvidence(
+          runAnswer,
+          answerModel,
+          input.q,
+          eligible,
+          Boolean(config.groq),
+        ),
     ).catch(() => undefined);
 
     // The model only selects passages. Rehydrate against current access before

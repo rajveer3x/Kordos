@@ -6,6 +6,8 @@ import {
   githubBindingsSchema,
   googleEndpoints,
   googleOAuthEnv,
+  groqModelEnv,
+  groqModelSettings,
   githubIdSchema,
   searchModelEnv,
   type FoundationJobPayload,
@@ -16,7 +18,11 @@ import {
   databaseUrlSchema,
   fixtureEndpointSchema,
 } from "@kordos/db";
-import { searchProvider } from "@kordos/search-model";
+import {
+  modelOperations,
+  modelOperationsEnv,
+  searchProvider,
+} from "@kordos/search-model";
 import { runFoundationJob } from "@kordos/domain";
 import { Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
@@ -24,17 +30,27 @@ import { z } from "zod";
 import { startBriefs } from "./briefs.js";
 import { startConnectors } from "./connectors/worker.js";
 import { startInbox } from "./inbox.js";
+import { runRetention } from "./retention.js";
 import { startMeetings } from "./meetings.js";
 import { startSearch } from "./search.js";
 import { runProjectHealth } from "./project-health.js";
 import { startRisks } from "./risks.js";
 import { startApprovals } from "./approvals.js";
+import { observeQueue, reportBacklog } from "./operations.js";
 
 const config = z
   .object({
     DATABASE_URL: databaseUrlSchema,
     BRIEF_WORKER_DATABASE_URL: databaseUrlSchema.optional(),
     ...searchModelEnv,
+    ...groqModelEnv,
+    ...modelOperationsEnv,
+    GROQ_TRANSCRIPTION_MODEL: z
+      .string()
+      .trim()
+      .min(1)
+      .max(120)
+      .default("whisper-large-v3-turbo"),
     OPENAI_MEETING_MODEL: z
       .string()
       .min(1)
@@ -73,6 +89,7 @@ const config = z
     APP_ORIGIN: z.url({ protocol: /^https?$/ }).optional(),
     WEB_PORT: z.coerce.number().int().min(1).max(65535).default(4317),
     REDIS_URL: z.url({ protocol: /^rediss?$/ }),
+    ENABLE_EXTERNAL_WRITES: z.stringbool().default(true),
   })
   .safeParse(process.env);
 
@@ -110,7 +127,7 @@ function reportRedisError(error: Error) {
   redisUnavailable = true;
   console.error(
     "[worker] Redis connection failed. Waiting to reconnect.",
-    error.message,
+    error.name,
   );
 }
 producer.on("error", reportRedisError);
@@ -132,12 +149,7 @@ worker.on("ready", () => {
   redisUnavailable = false;
   console.info("[worker] Ready to process foundation jobs.");
 });
-worker.on("failed", (job, error) => {
-  console.error(
-    `[worker] Processing failed for job ${job?.id ?? "unknown"}.`,
-    error.message,
-  );
-});
+observeQueue(worker);
 
 const approvals = startApprovals(
   db.reviews,
@@ -146,6 +158,8 @@ const approvals = startApprovals(
   reportRedisError,
 );
 const settings = config.data;
+const meter = modelOperations(producer, settings);
+const groq = groqModelSettings(settings, process.env.NODE_ENV);
 const fixture =
   settings.CONNECTOR_TOKEN_KEY && settings.CONNECTOR_FIXTURE_URL
     ? {
@@ -190,7 +204,7 @@ const connectors =
   settings.BRIEF_WORKER_DATABASE_URL && (fixture || github || google)
     ? startConnectors(
         settings.BRIEF_WORKER_DATABASE_URL,
-        { fixture, github, google },
+        { fixture, github, google, publish: settings.ENABLE_EXTERNAL_WRITES },
         producer,
         consumer,
         reportRedisError,
@@ -199,17 +213,21 @@ const connectors =
 const briefs = settings.BRIEF_WORKER_DATABASE_URL
   ? startBriefs(
       settings.BRIEF_WORKER_DATABASE_URL,
-      settings.OPENAI_API_KEY && settings.OPENAI_BRIEF_MODEL
-        ? {
-            apiKey: settings.OPENAI_API_KEY,
-            baseUrl: settings.OPENAI_BASE_URL,
-            model: settings.OPENAI_BRIEF_MODEL,
-            timeoutMs: settings.BRIEF_MODEL_TIMEOUT_MS,
-          }
-        : undefined,
+      groq
+        ? { ...groq, timeoutMs: settings.BRIEF_MODEL_TIMEOUT_MS }
+        : settings.OPENAI_API_KEY && settings.OPENAI_BRIEF_MODEL
+          ? {
+              provider: "openai",
+              apiKey: settings.OPENAI_API_KEY,
+              baseUrl: settings.OPENAI_BASE_URL,
+              model: settings.OPENAI_BRIEF_MODEL,
+              timeoutMs: settings.BRIEF_MODEL_TIMEOUT_MS,
+            }
+          : undefined,
       producer,
       consumer,
       reportRedisError,
+      meter,
     )
   : undefined;
 const risks = startRisks(db.risks, producer, consumer, reportRedisError);
@@ -237,33 +255,46 @@ const meetings = settings.BRIEF_WORKER_DATABASE_URL
   ? startMeetings(
       settings.BRIEF_WORKER_DATABASE_URL,
       storage,
-      settings.OPENAI_API_KEY
+      groq
         ? {
-            apiKey: settings.OPENAI_API_KEY,
-            baseUrl: settings.OPENAI_BASE_URL,
-            model: settings.OPENAI_MEETING_MODEL,
+            ...groq,
+            model: settings.GROQ_TRANSCRIPTION_MODEL,
             timeoutMs: settings.MEETING_TRANSCRIPTION_TIMEOUT_MS,
           }
-        : undefined,
+        : settings.OPENAI_API_KEY
+          ? {
+              provider: "openai",
+              apiKey: settings.OPENAI_API_KEY,
+              baseUrl: settings.OPENAI_BASE_URL,
+              model: settings.OPENAI_MEETING_MODEL,
+              timeoutMs: settings.MEETING_TRANSCRIPTION_TIMEOUT_MS,
+            }
+          : undefined,
       producer,
       consumer,
       reportRedisError,
+      meter,
     )
   : undefined;
 const shutdown = new AbortController();
+const retention = settings.BRIEF_WORKER_DATABASE_URL
+  ? runRetention(settings.BRIEF_WORKER_DATABASE_URL, shutdown.signal)
+  : undefined;
 const search = settings.BRIEF_WORKER_DATABASE_URL
   ? startSearch(
       settings.BRIEF_WORKER_DATABASE_URL,
-      settings.OPENAI_SEARCH_EMBEDDING_MODEL
+      !groq && settings.OPENAI_SEARCH_EMBEDDING_MODEL
         ? searchProvider(settings)
         : undefined,
       shutdown.signal,
+      meter,
     )
   : undefined;
 const inbox = startInbox(
   settings.BRIEF_WORKER_DATABASE_URL ?? settings.DATABASE_URL,
   shutdown.signal,
   settings.BRIEF_WORKER_DATABASE_URL &&
+    settings.ENABLE_EXTERNAL_WRITES &&
     settings.INBOX_EMAIL_URL &&
     settings.INBOX_EMAIL_KEY &&
     settings.INBOX_EMAIL_FROM
@@ -316,6 +347,9 @@ async function dispatchPendingJobs(signal: AbortSignal) {
 }
 
 const dispatcher = dispatchPendingJobs(shutdown.signal);
+const backlog = settings.BRIEF_WORKER_DATABASE_URL
+  ? reportBacklog(settings.BRIEF_WORKER_DATABASE_URL, shutdown.signal)
+  : undefined;
 const weeklyHealth = settings.BRIEF_WORKER_DATABASE_URL
   ? runProjectHealth(settings.BRIEF_WORKER_DATABASE_URL, shutdown.signal)
   : undefined;
@@ -335,6 +369,8 @@ async function stop() {
       inbox,
       weeklyHealth,
       search,
+      retention,
+      backlog,
     ]);
     await queue.close();
     await db.close();

@@ -65,9 +65,10 @@ export function connectSearchWorker(url: string) {
     async claim(model: string) {
       const lease = randomUUID();
       const chunks = await sql<
-        { id: string; title: string; passage: string }[]
+        { id: string; workspaceId: string; title: string; passage: string }[]
       >`
-        SELECT id, title, passage FROM kordos_search.claim_embeddings(${model}, ${lease})
+        SELECT id, workspace_id AS "workspaceId", title, passage
+        FROM kordos_ops.claim_embeddings(${model}, ${lease})
       `;
       return { lease, chunks };
     },

@@ -1,4 +1,5 @@
 import { HeadBucketCommand, S3Client } from "@aws-sdk/client-s3";
+import { randomUUID } from "node:crypto";
 import {
   foundationJobIdSchema,
   foundationJobRequestSchema,
@@ -16,6 +17,8 @@ const config = loadConfig(process.env);
 const app = Fastify({
   logger: true,
   logController: new Fastify.LogController({ disableRequestLogging: true }),
+  genReqId: () => randomUUID(),
+  requestIdHeader: false,
 });
 const db = connectDatabase(config.DATABASE_URL);
 const redis = new Redis(config.REDIS_URL, {
@@ -37,6 +40,23 @@ const storage = new S3Client({
 
 // Redis reconnects automatically. Readiness reports connection failures.
 redis.on("error", () => {});
+
+app.addHook("onRequest", async (request, reply) => {
+  reply.header("X-Request-ID", request.id);
+});
+app.addHook("onResponse", async (request, reply) => {
+  if (request.routeOptions.url?.startsWith("/api/health/")) return;
+  request.log.info(
+    {
+      event: "http.request",
+      route: request.routeOptions.url,
+      method: request.method,
+      status: reply.statusCode,
+      durationMs: Math.round(reply.elapsedTime),
+    },
+    "HTTP request completed",
+  );
+});
 
 app.get("/api/health/live", async () => ({ status: "alive" }));
 app.get("/api/health/ready", async (_request, reply) => {
@@ -149,7 +169,7 @@ process.once("SIGINT", stop);
 process.once("SIGTERM", stop);
 
 try {
-  await app.listen({ host: "127.0.0.1", port: config.API_PORT });
+  await app.listen({ host: config.API_HOST, port: config.API_PORT });
 } catch (error) {
   app.log.error({ err: error }, "API failed to start");
   await stop();

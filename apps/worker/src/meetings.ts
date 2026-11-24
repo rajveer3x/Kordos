@@ -13,12 +13,14 @@ import {
 } from "@kordos/contracts";
 import { connectMeetingWorker } from "@kordos/db";
 import { extractMeetingItems, splitMeetingText } from "@kordos/domain";
+import { modelOperations, withModelOperation } from "@kordos/search-model";
 import { Queue, Worker } from "bullmq";
 import type { Redis } from "ioredis";
 import {
   transcribeMeeting,
   type TranscriptionConfig,
 } from "./meeting-transcription.js";
+import { observeQueue } from "./operations.js";
 
 type Storage = { client: S3Client; bucket: string };
 type Claim = ReturnType<typeof meetingClaimSchema.parse>;
@@ -58,6 +60,7 @@ export function startMeetings(
   producer: Redis,
   consumer: Redis,
   reportRedisError: (error: Error) => void,
+  meter: ReturnType<typeof modelOperations>,
 ) {
   const db = connectMeetingWorker(url);
   const queue = new Queue<MeetingJob>(meetingQueue, {
@@ -71,7 +74,15 @@ export function startMeetings(
       const raw = await db.claim(input);
       if (!raw) return;
       const claim = meetingClaimSchema.parse(raw);
-      const outcome = await readTranscript(claim, storage, model);
+      const outcome = await withModelOperation(
+        meter,
+        {
+          workspaceId: claim.workspaceId,
+          operationId: input.id,
+        },
+        "transcription",
+        () => readTranscript(claim, storage, model),
+      );
       if ("failure" in outcome && outcome.failure)
         return db.finish(input.id, claim.lease, { failure: outcome.failure });
       const segments = meetingTranscriptSchema.safeParse(outcome.segments);
@@ -100,11 +111,7 @@ export function startMeetings(
   );
   queue.on("error", reportRedisError);
   worker.on("error", reportRedisError);
-  worker.on("failed", (job) =>
-    console.error(
-      `[worker] Could not process meeting ${job?.id ?? "unknown"}.`,
-    ),
-  );
+  observeQueue(worker);
   let lastCleanup = 0;
   let cleaning: Promise<void> | undefined;
   return {

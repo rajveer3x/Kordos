@@ -56,6 +56,11 @@ export function registerConnectorIngress(
           );
           if (!result) return reply.code(404).send();
           if (result.result !== "saved") return reply.code(409).send();
+          request.log.info({
+            event: "connector.receipt",
+            operationId: result.id,
+            provider: "fixture",
+          });
           return reply.code(202).send({ id: result.id });
         } catch {
           request.log.error("Connector receipt could not be persisted");

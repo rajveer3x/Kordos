@@ -7,8 +7,11 @@ import {
   githubBindingsSchema,
   googleEndpoints,
   googleOAuthEnv,
+  groqModelEnv,
+  groqModelSettings,
   searchModelEnv,
 } from "@kordos/contracts";
+import { modelOperationsEnv } from "@kordos/search-model";
 import { z } from "zod";
 
 const configSchema = z.object({
@@ -18,6 +21,7 @@ const configSchema = z.object({
   AUTH0_CLIENT_ID: z.string().trim().min(1).optional(),
   AUTH0_CLIENT_SECRET: z.string().min(1).optional(),
   API_PORT: z.coerce.number().int().min(1).max(65535).default(4301),
+  API_HOST: z.string().trim().min(1).default("127.0.0.1"),
   DATABASE_URL: databaseUrlSchema,
   REDIS_URL: z.url({ protocol: /^rediss?$/ }),
   STORAGE_ENDPOINT: z.url({ protocol: /^https?$/ }),
@@ -27,6 +31,8 @@ const configSchema = z.object({
   STORAGE_SECRET_ACCESS_KEY: z.string().trim().min(1),
   ...googleOAuthEnv,
   ...searchModelEnv,
+  ...groqModelEnv,
+  ...modelOperationsEnv,
   OPENAI_SEARCH_ANSWER_MODEL: z.string().min(1).max(120).optional(),
   GOOGLE_FIXTURE_URL: fixtureEndpointSchema.optional(),
   CONNECTOR_TOKEN_KEY: connectorKeySchema.optional(),
@@ -85,8 +91,9 @@ export function loadConfig(env: NodeJS.ProcessEnv) {
       "Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and CONNECTOR_TOKEN_KEY together.",
     );
 
+  const groq = groqModelSettings(result.data, env.NODE_ENV);
   if (!AUTH0_ISSUER && !AUTH0_CLIENT_ID && !AUTH0_CLIENT_SECRET) {
-    return { ...result.data, origin, google, auth: undefined };
+    return { ...result.data, origin, google, groq, auth: undefined };
   }
   if (!AUTH0_ISSUER || !AUTH0_CLIENT_ID || !AUTH0_CLIENT_SECRET) {
     throw new Error(
@@ -103,6 +110,7 @@ export function loadConfig(env: NodeJS.ProcessEnv) {
     ...result.data,
     origin,
     google,
+    groq,
     auth: {
       issuer: issuer.href,
       clientId: AUTH0_CLIENT_ID,

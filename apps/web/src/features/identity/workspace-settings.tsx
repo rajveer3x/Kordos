@@ -15,6 +15,8 @@ import { NotificationPreferences } from "../inbox/preferences";
 import { SignOut } from "./access-pages";
 import { denied, errorMessage, read, request } from "./api";
 
+import { RetentionSettings } from "./retention-settings";
+
 const labels: Record<WorkspaceRole, string> = {
   viewer: "Viewer",
   contributor: "Contributor",
@@ -296,6 +298,7 @@ export function WorkspaceSettings({
       {workspace.role === "admin" && (
         <>
           <Members workspaceId={workspace.id} actorId={actorId} />
+          <RetentionSettings workspaceId={workspace.id} actorId={actorId} />
           <ConnectorSettings />
           <InvitationForm
             workspaceId={workspace.id}

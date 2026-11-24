@@ -12,18 +12,26 @@ import { ApiError, errorMessage, request } from "../identity/api";
 export const PlanningScope = createContext<{
   workspace: WorkspaceSummary;
   actorId: string;
+  accessEpoch: string;
 } | null>(null);
 export const planningRefresh = { gcTime: 0, refetchInterval: 5_000 } as const;
 
 export function usePlanning() {
   const scope = useContext(PlanningScope);
   if (!scope) throw new Error("A workspace is required.");
-  const { workspace, actorId } = scope;
+  const { workspace, actorId, accessEpoch } = scope;
   return {
     workspace,
     actorId,
     api: `/workspaces/${workspace.id}`,
-    key: ["planning", actorId, workspace.id, workspace.role] as const,
+    accessEpoch,
+    key: [
+      "planning",
+      actorId,
+      workspace.id,
+      workspace.role,
+      accessEpoch,
+    ] as const,
   };
 }
 

@@ -262,6 +262,15 @@ export function registerReviews(
               : { action, input: parse(reviewReasonSchema, request.body) },
           ),
         );
+        if (response.receiptId && action === "approve") {
+          request.log.info({
+            event: "execution.approved",
+            operationId: response.receiptId,
+            workspaceId,
+            proposalId: id,
+            revision: response.revision,
+          });
+        }
         return action === "approve"
           ? reply
               .code(202)

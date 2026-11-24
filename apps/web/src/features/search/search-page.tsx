@@ -119,6 +119,17 @@ function Passages({
 }
 
 function Results({ input, params }: { input: SearchQuery; params: string }) {
+  const { accessEpoch } = usePlanning();
+  return <SearchResults key={accessEpoch} input={input} params={params} />;
+}
+
+function SearchResults({
+  input,
+  params,
+}: {
+  input: SearchQuery;
+  params: string;
+}) {
   const { api, key } = usePlanning();
   const results = useQuery({
     queryKey: [...key, "search", params],

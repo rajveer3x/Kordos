@@ -195,6 +195,7 @@ export const meetingAudioDescriptorSchema = z.object({
   extension: meetingAudioExtensionSchema,
 });
 export const meetingClaimSchema = z.object({
+  workspaceId: idSchema,
   lease: idSchema,
   startsAt: instant,
   timeZone: timeZoneSchema,

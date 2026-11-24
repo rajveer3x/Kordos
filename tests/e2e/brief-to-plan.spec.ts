@@ -21,6 +21,7 @@ import {
   startOidcFixture,
 } from "./oidc-fixture.js";
 
+const groqFixture = process.env.TEST_GROQ_BRIEFS === "1";
 const modelPort = Number(process.env.TEST_BRIEF_MODEL_PORT ?? 4429);
 const quotes = [
   "🧭 Build the release checklist. Mira owns it, 2 workdays, due tomorrow.",
@@ -67,6 +68,7 @@ test("a sourced brief survives a timeout, and the edited plan applies once throu
   const calls = new Map<string, number>();
   const server = createServer(async (request, response) => {
     try {
+      const expectedKey = groqFixture ? "test-groq-key" : "test-brief-key";
       const chunks: Buffer[] = [];
       for await (const chunk of request) chunks.push(Buffer.from(chunk));
       const payload = JSON.parse(Buffer.concat(chunks).toString("utf8"));
@@ -76,7 +78,10 @@ test("a sourced brief survives a timeout, and the edited plan applies once throu
         request.url !== "/v1/chat/completions" ||
         payload.response_format.json_schema.strict !== true ||
         brief !== content ||
-        request.headers.authorization !== "Bearer test-brief-key"
+        request.headers.authorization !== `Bearer ${expectedKey}` ||
+        (groqFixture
+          ? "store" in payload || payload.model !== "openai/gpt-oss-20b"
+          : payload.store !== false)
       ) {
         response.writeHead(400).end();
         return;

@@ -1,8 +1,8 @@
 # Delivery tracker
 
-**Current state** — Features 01 through 18 are verified locally.
+**Current state** — Features 01 through 20 are verified locally.
 
-**Next ready feature** — [19 · Retention and access lifecycle](feature-specs/19-privacy-and-retention.md). Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
+**Next ready feature** — [21 · Accessibility and visual verification](feature-specs/21-accessibility-and-visual-qa.md). Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
 
 | ID | Feature prompt | Depends on | State | Evidence |
 |---|---|---|---|---|
@@ -24,10 +24,12 @@
 | 16 | [Permission-aware hybrid search](feature-specs/16-hybrid-search.md) | 07, 11, 14, 15 | Done | Semantic retrieval, exact IDs during an outage, cited disagreement and immediate revocation passed. See [Feature 16 evidence](#feature-16-evidence). |
 | 17 | [Weekly health and duplicate review](feature-specs/17-health-and-duplicates.md) | 08, 10, 12, 16 | Done | Commitment slack, historical evidence revocation, versioned dismissal and cycle-safe consolidation passed. See [Feature 17 evidence](#feature-17-evidence). |
 | 18 | [Workspace home and activity history](feature-specs/18-workspace-home-and-activity.md) | 10, 11, 12, 14, 17 | Done | Scoped priorities, matching review and audit identifiers, and mobile activity return passed. See [Feature 18 evidence](#feature-18-evidence). |
-| 19 | [Retention and access lifecycle](feature-specs/19-privacy-and-retention.md) | 13, 15, 16, 17, 18 | Pending | — |
-| 20 | [Deployment and recovery](feature-specs/20-operability-and-delivery.md) | 12, 14, 15, 19 | Pending | — |
+| 19 | [Retention and access lifecycle](feature-specs/19-privacy-and-retention.md) | 13, 15, 16, 17, 18 | Done | Open evidence revocation, interrupted deletion recovery and redacted audit attribution passed. See [Feature 19 evidence](#feature-19-evidence). |
+| 20 | [Deployment and recovery](feature-specs/20-operability-and-delivery.md) | 12, 14, 15, 19 | Done | The local restore, worker crash and model outage checks passed. See [Feature 20 evidence](#feature-20-evidence). |
 | 21 | [Accessibility and visual verification](feature-specs/21-accessibility-and-visual-qa.md) | 18, 19 | Pending | — |
 | 22 | [Full release evidence](feature-specs/22-release-evidence.md) | 16, 17, 18, 19, 20, 21 | Pending | — |
+
+**Groq provider update** — Done for Features 09, 11 and 16. Synthetic requests passed against live Groq. See [verification](#groq-provider-verification).
 
 ## Handoff
 
@@ -369,3 +371,54 @@ Verified locally on 2026-11-24 with Node 26.5.0, pnpm 10.34.9, Chromium, loopbac
 Home gives unconfirmed decisions priority for project leads and shows unsuperseded decisions confirmed in the past seven days. Project activity identifies Workspace and GitHub audit events and retains its filters and selection in the URL.
 
 All Feature 18 acceptance checks passed locally. Feature 19 is ready.
+
+## Feature 19 evidence
+
+Verified locally on 2026-11-24 with Node 26.5.0, pnpm 10.34.9, Chromium, loopback OIDC and transcription fixtures, and isolated PostgreSQL, Redis and S3-compatible storage.
+
+| Check | Result |
+|---|---|
+| `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm build`, `git diff --check` | Passed, including 17 Vitest tests. The build reported the existing Zod annotation and Vite entry-chunk size warnings. |
+| `pnpm db:migrate` twice and `pnpm db:generate` | Fresh and repeat migrations passed. Drizzle found no schema changes. A populated Feature 18 upgrade preserved a restricted project, task, transcript and workspace creation audit entry under the runtime role. |
+| `pnpm test:e2e --workers=3 --trace=on --output=test-results/feature-19-full` | All 26 Chromium tests passed, including Redis recovery and Features 02–19. |
+| `pnpm test:e2e --project=retention --no-deps --trace=on --output=test-results/feature-19-final` | Passed with the final reflow assertions. Reviewed desktop and mobile screenshots of the policy form and deletion progress. |
+| Open evidence and revoked shares | The [retention journey](../tests/e2e/retention-and-access.spec.ts) expired the same recording and transcript while search, weekly health and the meeting were open. A subsequent request to the copied audio URL and the old transcript URL returned 404. The open views removed the expired evidence, and explicitly revoking an email excerpt removed it from search and its direct URL. |
+| Interrupted deletion and preserved records | The test committed an audio removal marker without acknowledging deletion. The worker retried, and an authenticated S3 HEAD returned 404 after completion. Transcript text, derived suggestions, mirror text, the revoked excerpt and their index copies were cleared. The approved decision and separately approved email excerpt stayed available. The redacted work audit retained its event ID, actor and timestamp. |
+| Administration | Settings rendered without horizontal overflow at 1440, 1024, 390 and 320 CSS px. A stale policy update returned 409. Contributors received 404 for policy reads and writes. The app database role was denied direct policy table and purge function access. |
+
+Workspace administrators manage retention and view deletion progress in Settings. Defaults are 90 days for audio, 365 for transcript revisions, 365 for imported revisions and 90 for audit details. Shorter meeting audio settings take precedence. The [retention documentation](../README.md#workspace-retention) defines a 30-day backup window. See [Feature 20 evidence](#feature-20-evidence) for the restore rehearsal and unexercised hosted lifecycle checks.
+
+All Feature 19 acceptance checks passed locally. Features 20 and 21 have their prerequisites met.
+
+## Feature 20 evidence
+
+Verified locally on 2026-11-24 with Node 26.5.0, pnpm 10.34.9, Chromium, loopback OIDC and model fixtures, and separate PostgreSQL, Redis and SeaweedFS instances for the source and recovery environments.
+
+| Check | Result |
+|---|---|
+| `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm build`, `git diff --check` | Passed, including all 21 Vitest tests. The build reported the existing Zod annotations and Vite entry-chunk warnings. |
+| `pnpm db:migrate` twice and `pnpm db:generate` | Fresh and repeated migrations passed. Drizzle found no schema changes. A populated Feature 19 upgrade preserved a restricted project and its runtime-role access. The previous worker function grants remained available. The app role could not query worker-only backlog metrics. |
+| Docker targets `web`, `api`, `worker`, `migrate` | All four images built. The migration image initialized an isolated database, API and worker ran as UID 1000, and the worker emitted its backlog sample. Nginx served a client deep link, returned 404 for a missing asset, proxied readiness and returned 101 for a WebSocket Upgrade. Redis showed two API subscribers on the Socket.IO adapter channel and one after shutting down a replica. |
+| `pnpm test:recovery --output=test-results/feature-20-recovery-complete` | The [recovery rehearsal](../tests/operations/recovery.spec.ts) passed. The API returned liveness 200 and readiness 503 while starting without Redis. It became ready after Redis started. The fixture model returned 503, the quota blocked a second call, and manual task editing succeeded during the outage. A SIGKILL and restart drained the queued synthetic job in **1.91 seconds**. |
+| Restore and event counts | The restored database matched one workspace, one work item, three documents, one attachment, one comment, one pending execution, 16 audit events and 15 outbox rows before replay. The private attachment matched its SHA-256 and required sign-in. The feed returned the original event ID, the pending approval applied once using its original receipt, and the operator trace connected the source document to the effect audit ID. |
+| Measured recovery | The local loss window was **0.408 seconds** against a 15-minute objective. One write deliberately made after the backup was absent. Recovery took **10.872 seconds** against a four-hour objective, including recovery infrastructure startup, restore, sign-in, object verification and queue replay. |
+| `pnpm test:e2e --workers=3 --trace=on --output=test-results/feature-20-full-final` | All 26 Chromium tests passed. A focused rerun also passed the brief and meeting journeys after an earlier run stopped on a transcription fixture connection error. |
+
+The [deployment and recovery runbook](../infra/deploy/README.md) documents rollout, rollback, credential recovery, scoped event replay and 30-day backup and noncurrent object retention settings. Managed WAL/PITR, backup lifecycle enforcement, recovery of production secrets, production TLS, production-scale restore, post-backup revocation replay and live provider reconciliation remain unexercised. No staging or production deployment took place.
+
+All local Feature 20 acceptance checks passed. Feature 21 is ready.
+
+
+## Groq provider verification
+
+Verified on 2026-11-24 using synthetic inputs against live Groq and through Chromium with model fixtures and isolated PostgreSQL, Redis and S3-compatible storage.
+
+| Check | Result |
+|---|---|
+| `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm build`, `git diff --check` | Passed. All 20 Vitest tests passed. Groq tests covered structured brief requests, timestamped transcripts with a null speaker, cited answers from local results and rate-limit fallback. The build reported the existing Zod and Vite warnings. |
+| `TEST_GROQ_BRIEFS=1 pnpm test:e2e --project=briefs --no-deps --workers=1 --output=test-results/groq-briefs` | Passed through the browser and worker. The Groq fixture checked the credential, model and structured request. A timeout preserved the brief, and the edited plan went through review before applying once. |
+| `pnpm test:e2e --project=briefs --project=meetings --project=search --project=retention --no-deps --workers=1 --output=test-results/groq-regression` | All four tests passed with the existing provider fixtures. |
+| Live Groq with synthetic inputs | The models endpoint accepted the configured key and listed both models. Cited search returned the expected source passage, and transcription returned timed segments from a synthetic recording. The live brief request initially returned 400 for its nullable deadline union. The updated provider schema accepted a dated task and an undated task, both grounded in the brief. |
+| `pnpm test:e2e --project=briefs --no-deps --workers=1` with and without `TEST_GROQ_BRIEFS=1` | Both fixture variants passed after the deadline schema fix. All 20 Vitest tests, type checks, lint, formatting and build also passed. |
+
+Configuring `GROQ_API_KEY` selects Groq for brief extraction, cited search and timestamped transcription. The API and worker use the local search index in Groq mode. See the [Groq setup](../README.md#groq-ai).

@@ -85,16 +85,20 @@ export function identityStore(client: Sql) {
     },
     workspace(actorId: string, workspaceId: string) {
       return scoped(actorId, workspaceId, async (sql) => {
-        const [workspace] = await sql<WorkspaceSummary[]>`
-          SELECT id, name, time_zone AS "timeZone", kordos_identity.current_role() AS role
+        const [workspace] = await sql<
+          (WorkspaceSummary & { accessEpoch: string | null })[]
+        >`
+          SELECT id, name, time_zone AS "timeZone", kordos_identity.current_role() AS role,
+            kordos_retention.access_epoch() AS "accessEpoch"
           FROM public.workspaces WHERE id = ${workspaceId}
         `;
-        if (!workspace) return;
+        if (!workspace || workspace.accessEpoch === null) return;
+        const { accessEpoch, ...summary } = workspace;
         const projects = await sql<WorkspaceProject[]>`
           SELECT id, name, description, visibility, archived_at IS NOT NULL AS archived FROM public.projects
           WHERE workspace_id = ${workspaceId} ORDER BY name, id
         `;
-        return { workspace, projects };
+        return { workspace: summary, projects, accessEpoch };
       });
     },
     members(actorId: string, workspaceId: string) {

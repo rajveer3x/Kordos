@@ -14,9 +14,10 @@
     "db:migrate": "pnpm --filter @kordos/db migrate",
     "typecheck": "pnpm -r typecheck && tsc -p tsconfig.json",
     "lint": "eslint apps packages tests *.config.*",
-    "format:check": "prettier --check apps packages tests .github/workflows compose.yaml *.json *.yaml *.config.* README.md",
+    "format:check": "prettier --check apps packages tests 'infra/**/*.mjs' .github/workflows compose.yaml *.json *.yaml *.config.* README.md",
     "test": "vitest run",
-    "test:e2e": "node --env-file-if-exists=.env ./node_modules/@playwright/test/cli.js test"
+    "test:e2e": "node --env-file-if-exists=.env ./node_modules/@playwright/test/cli.js test",
+    "test:recovery": "playwright test --config playwright.recovery.config.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

@@ -72,7 +72,7 @@ export function connectBriefWorker(url: string) {
     pending: () => sql<BriefWorkerJob[]>`SELECT * FROM kordos_briefs.pending()`,
     async claim({ id, attempt }: BriefWorkerJob) {
       const [row] =
-        await sql`SELECT kordos_briefs.claim(${id}, ${attempt}) AS value`;
+        await sql`SELECT kordos_ops.claim_brief(${id}, ${attempt}) AS value`;
       return row?.value;
     },
     async finish(

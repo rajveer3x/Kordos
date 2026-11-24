@@ -7,12 +7,15 @@ import {
   type BriefWorkerJob,
 } from "@kordos/contracts";
 import { connectBriefWorker } from "@kordos/db";
+import { modelOperations, withModelOperation } from "@kordos/search-model";
 import { Queue, Worker } from "bullmq";
 import type { Redis } from "ioredis";
 import { z } from "zod";
 import { extractBrief } from "./brief-model.js";
+import { observeQueue } from "./operations.js";
 
 const sourceSchema = z.object({
+  workspaceId: idSchema,
   leaseId: idSchema,
   title: z.string(),
   content: z.string(),
@@ -28,6 +31,7 @@ export function startBriefs(
   producer: Redis,
   consumer: Redis,
   reportRedisError: (error: Error) => void,
+  meter: ReturnType<typeof modelOperations>,
 ) {
   const db = connectBriefWorker(databaseUrl);
   const queue = new Queue<BriefWorkerJob>(briefQueue, {
@@ -44,16 +48,22 @@ export function startBriefs(
       await db.finish(
         command.id,
         source.leaseId,
-        await extractBrief(model, source),
+        await withModelOperation(
+          meter,
+          {
+            workspaceId: source.workspaceId,
+            operationId: command.id,
+          },
+          "brief",
+          () => extractBrief(model, source),
+        ),
       );
     },
     { connection: consumer, concurrency: 2 },
   );
   queue.on("error", reportRedisError);
   worker.on("error", reportRedisError);
-  worker.on("failed", (job) => {
-    console.error(`[worker] Could not process brief ${job?.id ?? "unknown"}.`);
-  });
+  observeQueue(worker);
   return {
     async dispatch(signal: AbortSignal) {
       const pending = await db.pending();

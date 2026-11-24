@@ -13,6 +13,7 @@ import {
 } from "@kordos/db";
 import { Queue, Worker } from "bullmq";
 import type { Redis } from "ioredis";
+import { observeQueue } from "../operations.js";
 import { ConnectorFailure, fixtureAdapter, syncConnector } from "./adapter.js";
 import { githubAdapter, githubFailure, type GitHubSettings } from "./github.js";
 import { syncGoogle } from "./google.js";
@@ -24,6 +25,7 @@ export function startConnectors(
     fixture?: { key: string; endpoint: string };
     github?: GitHubSettings;
     google?: GoogleSettings;
+    publish: boolean;
   },
   producer: Redis,
   consumer: Redis,
@@ -33,25 +35,28 @@ export function startConnectors(
   const { fixture, google } = settings;
   const adapter = fixture ? fixtureAdapter(fixture.endpoint) : undefined;
   const github = settings.github ? githubAdapter(settings.github) : undefined;
-  const outbound = github
+  const publication = settings.publish ? github : undefined;
+  const outbound = publication
     ? new Queue<ApprovalJob>("kordos-github-comments", {
         connection: producer,
         defaultJobOptions: { removeOnComplete: true, removeOnFail: true },
       })
     : undefined;
-  const publisher = github
+  const publisher = publication
     ? new Worker<ApprovalJob>(
         "kordos-github-comments",
         async ({ data }) =>
-          publishGitHubComment(approvalJobSchema.parse(data).id, db, github),
+          publishGitHubComment(
+            approvalJobSchema.parse(data).id,
+            db,
+            publication,
+          ),
         { connection: consumer, concurrency: 2 },
       )
     : undefined;
   outbound?.on("error", reportRedisError);
   publisher?.on("error", reportRedisError);
-  publisher?.on("failed", (job) => {
-    console.error("[worker] GitHub comment lease will be recovered.", job?.id);
-  });
+  if (publisher) observeQueue(publisher);
   const queue = new Queue<ConnectorQueueJob>(connectorQueue, {
     connection: producer,
     defaultJobOptions: { removeOnComplete: true, removeOnFail: true },
@@ -67,6 +72,19 @@ export function startConnectors(
         return;
       }
 
+      const started = performance.now();
+      const report = (outcome: string) =>
+        console.info(
+          JSON.stringify({
+            event: "provider.connector",
+            operation: job.kind,
+            operationId: input.id,
+            workspaceId: job.workspaceId,
+            provider: job.provider,
+            outcome,
+            durationMs: Math.round(performance.now() - started),
+          }),
+        );
       let batch: ConnectorBatch;
       try {
         if (job.provider === "github") {
@@ -154,18 +172,17 @@ export function startConnectors(
           }
         }
       } catch (error) {
-        await db.finish(
-          input.id,
-          job.lease,
-          null,
+        const issue =
           job.provider === "github"
             ? githubFailure(error).issue
             : error instanceof ConnectorFailure
               ? error.issue
-              : "invalid_batch",
-        );
+              : "invalid_batch";
+        report(issue);
+        await db.finish(input.id, job.lease, null, issue);
         return;
       }
+      report("ok");
 
       try {
         await db.finish(input.id, job.lease, batch, null);
@@ -185,13 +202,7 @@ export function startConnectors(
   );
   queue.on("error", reportRedisError);
   worker.on("error", reportRedisError);
-  worker.on("failed", (job) => {
-    if (job)
-      console.error(
-        "[worker] Connector job will be recovered from its durable lease.",
-        job.id,
-      );
-  });
+  observeQueue(worker);
 
   return {
     async dispatch(signal: AbortSignal) {

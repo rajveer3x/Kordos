@@ -6,6 +6,7 @@ import {
   oidcClientSecret,
 } from "./tests/e2e/oidc-fixture.js";
 
+const groqFixture = process.env.TEST_GROQ_BRIEFS === "1";
 const baseURL = `http://127.0.0.1:${process.env.WEB_PORT ?? 4317}`;
 
 const githubWorkspace = (process.env.TEST_GITHUB_WORKSPACE ??= randomUUID());
@@ -41,6 +42,7 @@ export default defineConfig({
         "**/hybrid-search.spec.ts",
         "**/health-and-duplicates.spec.ts",
         "**/workspace-activity.spec.ts",
+        "**/retention-and-access.spec.ts",
       ],
     },
     {
@@ -138,6 +140,12 @@ export default defineConfig({
       dependencies: ["project-health"],
       use: { actionTimeout: 10_000 },
     },
+    {
+      name: "retention",
+      testMatch: "**/retention-and-access.spec.ts",
+      dependencies: ["workspace-activity"],
+      use: { actionTimeout: 10_000 },
+    },
   ],
   webServer: {
     command: "pnpm dev",
@@ -148,6 +156,9 @@ export default defineConfig({
       AUTH0_CLIENT_SECRET: oidcClientSecret,
       OPENAI_BASE_URL: `http://127.0.0.1:${process.env.TEST_BRIEF_MODEL_PORT ?? 4429}/v1/`,
       OPENAI_API_KEY: "test-brief-key",
+      GROQ_API_KEY: groqFixture ? "test-groq-key" : "",
+      GROQ_TEXT_MODEL: "openai/gpt-oss-20b",
+      GROQ_FIXTURE_URL: `http://127.0.0.1:${process.env.TEST_BRIEF_MODEL_PORT ?? 4429}/v1/`,
       OPENAI_SEARCH_BASE_URL: `http://127.0.0.1:${process.env.TEST_SEARCH_MODEL_PORT ?? 4496}/v1/`,
       OPENAI_SEARCH_EMBEDDING_MODEL: "search-embeddings-fixture",
       OPENAI_SEARCH_ANSWER_MODEL: "search-answer-fixture",

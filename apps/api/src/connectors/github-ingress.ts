@@ -108,6 +108,13 @@ export function registerGitHubIngress(
             );
             if (result && result.result !== "saved")
               return reply.code(409).send();
+            if (result)
+              request.log.info({
+                event: "connector.receipt",
+                operationId: result.id,
+                workspaceId: workspace,
+                provider: "github",
+              });
             return reply.code(202).send(result ? { id: result.id } : undefined);
           }
 

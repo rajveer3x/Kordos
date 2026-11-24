@@ -2,6 +2,7 @@ import { riskJobSchema, riskQueue, type RiskJob } from "@kordos/contracts";
 import type { connectDatabase } from "@kordos/db";
 import { Queue, Worker } from "bullmq";
 import type { Redis } from "ioredis";
+import { observeQueue } from "./operations.js";
 
 export function startRisks(
   db: ReturnType<typeof connectDatabase>["risks"],
@@ -28,11 +29,7 @@ export function startRisks(
   );
   queue.on("error", reportRedisError);
   worker.on("error", reportRedisError);
-  worker.on("failed", (job) => {
-    if (job && job.attemptsMade >= (job.opts.attempts ?? 1)) {
-      console.error(`[worker] Could not assess comment event ${job.id}.`);
-    }
-  });
+  observeQueue(worker);
   return {
     async dispatch(signal: AbortSignal) {
       const jobs = await db.pending();

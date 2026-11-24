@@ -8,6 +8,7 @@ import { connectorStore } from "./connectors.js";
 import { collaborationStore } from "./collaboration.js";
 import { forecastStore } from "./forecast.js";
 import { inboxStore } from "./inbox.js";
+import { retentionStore } from "./retention.js";
 import { identityStore } from "./identity.js";
 import { meetingsStore } from "./meetings.js";
 import { knowledgeStore } from "./knowledge.js";
@@ -25,6 +26,7 @@ export { connectMeetingWorker } from "./meetings.js";
 export { connectHealthWorker } from "./project-health.js";
 export { connectSearchWorker } from "./search.js";
 export { connectBriefWorker } from "./briefs.js";
+export { connectOperations } from "./operations.js";
 export { setDatabaseScope } from "./identity.js";
 
 export const databaseUrlSchema = z.url({ protocol: /^(postgres|postgresql)$/ });
@@ -78,6 +80,7 @@ export function connectDatabase(url: string) {
     risks: risksStore(client),
     forecast: forecastStore(client),
     search: searchStore(client),
+    retention: retentionStore(client),
     async checkReady() {
       await db.execute(sql`
         SELECT 1 FROM ${foundationJobs}, ${foundationJobEffects}, public.workspaces, public.work_items,
@@ -112,3 +115,4 @@ export function connectDatabase(url: string) {
     close: () => client.end({ timeout: 3 }),
   };
 }
+export { connectRetentionWorker } from "./retention.js";

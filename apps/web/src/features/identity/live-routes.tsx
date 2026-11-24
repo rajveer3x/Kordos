@@ -228,7 +228,7 @@ function WorkspaceScope({
       </PublicState>
     );
   }
-  const { workspace, projects } = scope.data;
+  const { workspace, projects, accessEpoch } = scope.data;
   const initials = identity.name
     .split(/\s+/)
     .slice(0, 2)
@@ -236,7 +236,9 @@ function WorkspaceScope({
     .join("")
     .toUpperCase();
   return (
-    <PlanningScope.Provider value={{ workspace, actorId: identity.id }}>
+    <PlanningScope.Provider
+      value={{ workspace, actorId: identity.id, accessEpoch }}
+    >
       <WorkspaceRoutes
         workspace={{
           name: workspace.name,

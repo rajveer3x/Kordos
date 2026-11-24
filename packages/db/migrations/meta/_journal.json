@@ -120,6 +120,20 @@
       "when": 1795499185574,
       "tag": "0016_workspace_activity",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1795502511568,
+      "tag": "0017_privacy_and_retention",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1795502511569,
+      "tag": "0018_operations",
+      "breakpoints": true
     }
   ]
 }

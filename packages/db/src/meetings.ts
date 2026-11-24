@@ -116,7 +116,7 @@ export function connectMeetingWorker(url: string) {
     pending: () => sql<MeetingJob[]>`SELECT * FROM kordos_meetings.pending()`,
     async claim(job: MeetingJob) {
       const [row] =
-        await sql`SELECT kordos_meetings.claim(${job.id},${job.generation}) AS value`;
+        await sql`SELECT kordos_ops.claim_meeting(${job.id},${job.generation}) AS value`;
       return row?.value;
     },
     async finish(id: string, lease: string, outcome: MeetingOutcome) {

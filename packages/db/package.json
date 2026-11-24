@@ -14,6 +14,7 @@
     "@kordos/domain": "workspace:*",
     "drizzle-orm": "0.45.4",
     "postgres": "3.4.9",
+    "tsx": "4.23.15",
     "zod": "4.6.7"
   },
   "devDependencies": {

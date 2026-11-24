@@ -6,6 +6,7 @@ import {
   type CollaborationScope,
   type Comment,
 } from "@kordos/contracts";
+import { createAdapter } from "@socket.io/redis-adapter";
 import type { FastifyInstance } from "fastify";
 import type { Redis } from "ioredis";
 import { Server, type Socket } from "socket.io";
@@ -40,14 +41,34 @@ export function attachCollaboration(
   store: CollaborationStore,
   actorFromCookieHeader: (header: string) => Promise<string | undefined>,
 ) {
+  const pubSubOptions = {
+    enableOfflineQueue: true,
+    maxRetriesPerRequest: null,
+    commandTimeout: 0,
+  };
+  const publisher = redis.duplicate(pubSubOptions);
+  const subscriber = redis.duplicate(pubSubOptions);
+  for (const connection of [publisher, subscriber]) {
+    connection.on("error", () => {});
+  }
+  let adapterReady = false;
   const io = new Server(app.server, {
     path: "/realtime",
     transports: ["websocket"],
     serveClient: false,
     maxHttpBufferSize: 4096,
     allowRequest: (request, done) =>
-      done(null, request.headers.origin === origin),
+      done(null, adapterReady && request.headers.origin === origin),
   });
+  function attachAdapter() {
+    if (publisher.status !== "ready" || subscriber.status !== "ready") return;
+    publisher.off("ready", attachAdapter);
+    subscriber.off("ready", attachAdapter);
+    io.adapter(createAdapter(publisher, subscriber, { key: "kordos:socket" }));
+    adapterReady = true;
+  }
+  publisher.on("ready", attachAdapter);
+  subscriber.on("ready", attachAdapter);
 
   async function sessionActor(socket: Socket) {
     return actorFromCookieHeader(socket.request.headers.cookie ?? "");
@@ -207,10 +228,14 @@ export function attachCollaboration(
   app.addHook("preClose", () => {
     stopping = true;
     clearInterval(timer);
-    io.disconnectSockets();
+    io.local.disconnectSockets();
     io.engine.close();
   });
   app.addHook("onClose", async () => {
+    publisher.off("ready", attachAdapter);
+    subscriber.off("ready", attachAdapter);
+    publisher.disconnect();
+    subscriber.disconnect();
     await (await listener)?.unlisten();
   });
 }

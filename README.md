@@ -25,15 +25,25 @@ Readiness returns HTTP 503 when a dependency is down. Liveness checks the API pr
 
 Stop the app processes with Ctrl+C. Use `docker compose down` to stop infrastructure and retain its data.
 
+## Deployment and recovery
+
+The same workspace builds static web, API, worker and migration images. The [deployment and recovery runbook](infra/deploy/README.md) covers ingress, secret separation, structured telemetry, model quotas, rollout, rollback, restore and replay. Run `pnpm test:recovery` for the isolated database and private storage rehearsal.
+
 ## Auth0 sign-in
 
 Create an Auth0 Regular Web Application that supports authorization code flow and `client_secret_post`. Set `AUTH0_ISSUER` to the tenant issuer URL and set `AUTH0_CLIENT_ID` and `AUTH0_CLIENT_SECRET` in the server environment. Add `http://127.0.0.1:4317/api/auth/callback` to the application's Allowed Callback URLs for local development. For a deployment, set `APP_ORIGIN` to its HTTPS origin and allow its corresponding callback URL. Serve the web app and `/api` on that same origin. Auth0 sends the verified email used to redeem invitations.
 
 After sign-in, create a workspace and choose its IANA timezone. In **Settings**, an administrator can create an invitation link, copy it to the recipient, and manage member roles. Invitations expire after seven days, and removing a member revokes their outstanding links to that workspace. To change the last administrator, assign the role to another member first.
 
+## Groq AI
+
+Set `GROQ_API_KEY` in your local `.env` and restart the API and worker. For hosting, set the key in both server environments. Kordos then uses Groq for brief extraction, cited search answers and audio transcription. The defaults are `openai/gpt-oss-20b` for text and `whisper-large-v3-turbo` for audio. Use `GROQ_TEXT_MODEL` or `GROQ_TRANSCRIPTION_MODEL` to choose a compatible Groq model. Groq mode uses local keyword and exact-ID search, with Groq selecting passages for cited answers.
+
+Groq Whisper supplies transcript timestamps. Speaker labels can be added in the meeting's transcript editor. When a provider request fails or reaches its usage limit, the brief and recording stay available for retry, manual planning and pasted transcripts remain available, and search falls back to local passages. Groq Free has model-specific request, token and audio limits. [Groq rate limits](https://console.groq.com/docs/rate-limits) · [Groq data controls](https://console.groq.com/docs/your-data)
+
 ## Brief extraction
 
-Open a project and choose **Add a brief** to paste text, or choose **Plan from this revision** in a project document. Set `OPENAI_API_KEY` and `OPENAI_BRIEF_MODEL` in the worker environment to enable extraction with a model that supports Chat Completions structured outputs. The worker sends the selected source title and text. It resolves today, tomorrow and weekday phrases using the source revision’s timestamp and the project timezone at intake. You can enter dates or plan manually from the saved brief. [OpenAI structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs)
+Open a project and choose **Add a brief** to paste text, or choose **Plan from this revision** in a project document. Use the [Groq setup](#groq-ai) to enable extraction, or set `OPENAI_API_KEY` and `OPENAI_BRIEF_MODEL` in the worker environment for an OpenAI model that supports Chat Completions structured outputs. The worker sends the selected source title and text. It resolves today, tomorrow and weekday phrases using the source revision’s timestamp and the project timezone at intake. You can enter dates or plan manually from the saved brief. [OpenAI structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs)
 
 The extraction worker uses `BRIEF_WORKER_DATABASE_URL`. Fresh local Compose databases provision this restricted login using the example environment. For a local database volume created before Feature 09, run the migration, then set a password for the worker role from the local PostgreSQL console and add the matching URL to `.env`.
 
@@ -48,9 +58,19 @@ ALTER ROLE kordos_brief_worker LOGIN;
 
 ## Meeting recordings
 
-Open the **Meetings** tab in a project to create a meeting, add an agenda, and upload an authorized recording or paste a transcript. The worker uses the same restricted database connection as brief extraction. Set `OPENAI_API_KEY` in the worker environment for recording transcription. `OPENAI_MEETING_MODEL` defaults to `gpt-4o-transcribe-diarize`. Pasted transcripts and suggestion reprocessing run locally. [OpenAI file transcription](https://developers.openai.com/api/docs/guides/speech-to-text)
+Open the **Meetings** tab in a project to create a meeting, add an agenda, and upload an authorized recording or paste a transcript. The worker uses the same restricted database connection as brief extraction. Use the [Groq setup](#groq-ai) for timestamped transcription. The OpenAI option uses `OPENAI_API_KEY` and defaults to `gpt-4o-transcribe-diarize` for automatic speaker labels. Pasted transcripts and suggestion reprocessing run locally. [OpenAI file transcription](https://developers.openai.com/api/docs/guides/speech-to-text)
 
-Recording uploads accept MP3, WAV and M4A up to 20 MB. Set a retention period of 7, 30 or 90 days when creating or editing a meeting. Playback checks project access on each request. Removal and expiry revoke playback and queue deletion of the private object. Saved transcript revisions and approved follow-up stay available to project members.
+Recording uploads accept MP3, WAV and M4A up to 20 MB. Set a retention period of 7, 30 or 90 days when creating or editing a meeting. Playback checks project access on each request. Removal and expiry revoke playback and queue deletion of the private object. Saved transcript revisions follow the workspace transcript policy. Approved follow-up keeps its own project access.
+
+## Workspace retention
+
+Workspace administrators can open **Settings → Retention and deletion** to set the number of days to retain audio, transcript revisions, imported source revisions, and audit details. The defaults are 90, 365, 365, and 90 days, respectively. A meeting can expire audio sooner. Transcript age starts when a revision is saved, and imported revisions use the observation time supplied by the connector.
+
+Shortening a policy can make existing evidence unavailable immediately. Meeting playback and private document downloads use authenticated, non-cacheable API URLs. Search filters expired evidence before ranking, and weekly reports resolve proposals and their evidence on every read. Revoking a shared excerpt removes access immediately. The worker deletes the excerpt and its index entries while preserving independently authorized shares, confirmed decisions, and approved work.
+
+The restricted worker connection in `BRIEF_WORKER_DATABASE_URL` runs retention sweeps without a model or connector configured. **Deletion progress** shows pending and finished records by category. PostgreSQL commits each batch with its redactions and search rebuild requests. Audio removal records a durable marker before deleting from private storage and records completion after storage acknowledges the delete. A restarted worker retries unfinished deletion. Audit redaction keeps actor, action, timestamps, and reference IDs. Platform logs such as stdout use the deployment's logging configuration and should contain no source text.
+
+Deployments must expire encrypted database backups and archived WAL within 30 days and apply the same maximum to noncurrent private object versions. In a restore exercise, replay share revocations and deletion markers recorded after the restored snapshot, run retention and rebuild the search index before reopening access. The deployment and restore rehearsal is tracked in [Feature 20](context/feature-specs/20-operability-and-delivery.md).
 
 ## Interface preview
 
@@ -127,9 +147,9 @@ Run `pnpm test:e2e --project=google --no-deps` for the loopback Google OAuth and
 
 Open **Search** from the workspace navigation. Filter by project, source type, owner and source date. Searches are shareable as URLs and use the reader's current access. Search results link to the work item, source revision, decision, transcript passage or shared excerpt. Use a work UUID, `PR #17`, `owner/repo#17` or a GitHub PR URL for an exact lookup.
 
-The worker uses `BRIEF_WORKER_DATABASE_URL` to backfill the text index and process changes. Keyword and exact-ID search run locally. Set `OPENAI_API_KEY` and the same `OPENAI_SEARCH_EMBEDDING_MODEL` in the API and worker to enable semantic ranking. Use an embeddings model that accepts 512 dimensions, such as `text-embedding-3-small`. Semantic results appear as embeddings are filled in. If a new query embedding fails, the API uses keyword search. The worker submits eligible titles and passages for embedding. Owner-only GitHub mirrors use keyword and exact-ID search, and Gmail indexing uses explicitly shared excerpts.
+The worker uses `BRIEF_WORKER_DATABASE_URL` to backfill the text index and process changes. Keyword and exact-ID search run locally. With OpenAI selected, set `OPENAI_API_KEY` and the same `OPENAI_SEARCH_EMBEDDING_MODEL` in the API and worker to enable semantic ranking. Use an embeddings model that accepts 512 dimensions, such as `text-embedding-3-small`. Semantic results appear as embeddings are filled in. If a new query embedding fails, the API uses keyword search. The worker submits eligible titles and passages for embedding. Owner-only GitHub mirrors use keyword and exact-ID search, and Gmail indexing uses explicitly shared excerpts.
 
-Set `OPENAI_SEARCH_ANSWER_MODEL` in the API to enable cited passage selection with a Chat Completions model that supports structured outputs. The API sends the question and up to eight currently authorized passages. The answer displays verbatim source text with attribution, dates and links. When evidence is insufficient or the model is unavailable, the answer shows the available passages. The search adapters use `OPENAI_BASE_URL` unless `OPENAI_SEARCH_BASE_URL` is set.
+Setting `GROQ_API_KEY` enables cited passage selection. With OpenAI selected, configure `OPENAI_SEARCH_ANSWER_MODEL` in the API for a model that supports structured outputs. The API sends the question and up to eight currently authorized passages. The answer displays verbatim source text with attribution, dates and links. When evidence is insufficient or the model is unavailable, the answer shows the available passages. The OpenAI search adapter uses `OPENAI_BASE_URL` unless `OPENAI_SEARCH_BASE_URL` is set.
 
 Run `pnpm test:e2e --project=search --no-deps` for the browser journey and loopback model fixture. Set `TEST_SEARCH_MODEL_PORT` to override port 4496.
 

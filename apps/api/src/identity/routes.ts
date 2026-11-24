@@ -5,6 +5,8 @@ import {
   createInvitationSchema,
   createWorkspaceSchema,
   idSchema,
+  retentionPolicySchema,
+  updateRetentionSchema,
   updateMemberSchema,
 } from "@kordos/contracts";
 import type { connectDatabase } from "@kordos/db";
@@ -46,6 +48,7 @@ export function registerIdentity(
     | "collaboration"
     | "knowledge"
     | "meetings"
+    | "retention"
     | "reviews"
     | "projectHealth"
     | "risks"
@@ -123,7 +126,7 @@ export function registerIdentity(
 
       registerPlanning(api, stores.planning, requireActor);
       registerInbox(api, stores.inbox, requireActor);
-      registerSearch(api, stores.search, requireActor, config);
+      registerSearch(api, stores.search, requireActor, config, redis);
       registerConnectors(api, stores.connectors, requireActor, {
         key: config.CONNECTOR_FIXTURE_URL
           ? config.CONNECTOR_TOKEN_KEY
@@ -238,6 +241,36 @@ export function registerIdentity(
         if (!workspace) throw unavailable();
         return workspace;
       });
+
+      api.get("/workspaces/:workspaceId/retention", async (request) => {
+        const actor = await requireActor(request);
+        const { workspaceId } = parse(workspaceParams, request.params);
+        const policy = await stores.retention.read(actor, workspaceId);
+        if (!policy) throw unavailable();
+        return retentionPolicySchema.parse(policy);
+      });
+
+      api.patch(
+        "/workspaces/:workspaceId/retention",
+        async (request, reply) => {
+          const actor = await requireActor(request);
+          const { workspaceId } = parse(workspaceParams, request.params);
+          const input = parse(updateRetentionSchema, request.body);
+          const result = await stores.retention.save(actor, workspaceId, input);
+          if (result === "saved") return reply.code(204).send();
+          if (result === "conflict") {
+            const current = await stores.retention.read(actor, workspaceId);
+            if (current)
+              throw new IdentityError(
+                409,
+                "conflict",
+                "The policy changed. Review the current settings before saving.",
+                current,
+              );
+          }
+          throw unavailable();
+        },
+      );
 
       api.get("/workspaces/:workspaceId/members", async (request) => {
         const actor = await requireActor(request);

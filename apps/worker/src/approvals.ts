@@ -6,6 +6,7 @@ import {
 import type { connectDatabase } from "@kordos/db";
 import { Queue, Worker } from "bullmq";
 import type { Redis } from "ioredis";
+import { observeQueue } from "./operations.js";
 
 const attempts = 4;
 
@@ -41,11 +42,7 @@ export function startApprovals(
   );
   queue.on("error", reportRedisError);
   worker.on("error", reportRedisError);
-  worker.on("failed", (job) => {
-    console.error(
-      `[worker] Could not process approval ${job?.id ?? "unknown"}.`,
-    );
-  });
+  observeQueue(worker);
   return {
     async dispatch(signal: AbortSignal) {
       const pending = await db.pending();

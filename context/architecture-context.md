@@ -10,9 +10,11 @@
 | packages/domain | TypeScript | Calendar math, graph traversal, proposal transitions, command policy and authorized action definitions |
 | packages/contracts | TypeScript and Zod | DTO schemas, versions, typed events, public error codes |
 | packages/db | PostgreSQL, Drizzle, SQL migrations, pgvector | Durable truth, constraints, row policies, full-text and vector indexes |
-| Private storage and providers | S3-compatible storage, OpenAI adapters, GitHub App, Google OAuth | Authorized media and attachments, transcription, text, embeddings, scoped connector operations |
+| Private storage and providers | S3-compatible storage, Groq and OpenAI adapters, GitHub App, Google OAuth | Authorized media and attachments, transcription, text, embeddings, scoped connector operations |
 
-Use pnpm workspaces and Docker Compose in development. Pin compatible dependency versions in the lockfile during bootstrap. Use isolated test providers for CI and configured real providers for staging acceptance. Put credentials only in the server or worker environment.
+Use pnpm workspaces and Docker Compose in development. Pin compatible dependency versions in the lockfile during bootstrap. Use isolated test providers for CI and configured real providers for staging acceptance. Put credentials only in the server or worker environment. Configuring Groq selects it for brief extraction, timestamped transcription and cited search answers, with keyword and exact-ID retrieval supplied by PostgreSQL.
+
+The [deployment runbook](../infra/deploy/README.md) defines the static web, API, worker and migration images. API replicas share a Socket.IO Redis adapter and replay authorized events from PostgreSQL. Redis also enforces per-workspace model request limits across API and worker processes. Recovery treats PostgreSQL and private object storage as the durable sources.
 
 ## Data paths
 

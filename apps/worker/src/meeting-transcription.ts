@@ -6,6 +6,7 @@ import {
   type MeetingSegment,
   type meetingAudioExtensionSchema,
 } from "@kordos/contracts";
+import { requestModel } from "@kordos/search-model";
 import { z } from "zod";
 
 const responseSchema = z.object({
@@ -22,6 +23,7 @@ const responseSchema = z.object({
     .max(320),
 });
 export type TranscriptionConfig = {
+  provider: "openai" | "groq";
   apiKey: string;
   baseUrl: string;
   model: string;
@@ -41,12 +43,19 @@ export async function transcribeMeeting(
     `recording.${extension}`,
   );
   body.set("model", config.model);
-  body.set("response_format", "diarized_json");
-  body.set("chunking_strategy", "auto");
+  if (config.provider === "groq") {
+    body.set("response_format", "verbose_json");
+    body.append("timestamp_granularities[]", "segment");
+  } else {
+    body.set("response_format", "diarized_json");
+    body.set("chunking_strategy", "auto");
+  }
   const signal = AbortSignal.timeout(config.timeoutMs);
   let response: unknown;
   try {
-    const result = await fetch(
+    response = await requestModel(
+      config.provider,
+      config.model,
       new URL("audio/transcriptions", config.baseUrl.replace(/\/?$/, "/")),
       {
         method: "POST",
@@ -56,8 +65,6 @@ export async function transcribeMeeting(
         headers: { authorization: `Bearer ${config.apiKey}` },
       },
     );
-    if (!result.ok) return { failure: "provider_unavailable" };
-    response = await result.json();
   } catch (error) {
     return {
       failure: signal.aborted

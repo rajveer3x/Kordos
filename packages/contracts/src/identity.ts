@@ -61,6 +61,7 @@ export const workspaceProjectSchema = z.object({
 });
 export type WorkspaceProject = z.infer<typeof workspaceProjectSchema>;
 export const workspaceDetailSchema = z.object({
+  accessEpoch: z.string().regex(/^\d+$/),
   workspace: workspaceSummarySchema,
   projects: z.array(workspaceProjectSchema),
 });
