@@ -1,8 +1,8 @@
 # Delivery tracker
 
-**Current state** — Features 01 through 21 are verified locally.
+**Current state** — Features 01 through 21 are verified locally. Feature 22 search and audit fixes passed the local release gates. Connected staging verification remains open.
 
-**Next ready feature** — [22 · Full release evidence](feature-specs/22-release-evidence.md). Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
+**Next ready feature** — No later feature is listed. Resume [22 · Full release evidence](feature-specs/22-release-evidence.md) when the designated staging environment and provider test accounts are available. Numbers indicate suggested delivery order and the prerequisite column lists direct dependencies.
 
 | ID | Feature prompt | Depends on | State | Evidence |
 |---|---|---|---|---|
@@ -27,7 +27,7 @@
 | 19 | [Retention and access lifecycle](feature-specs/19-privacy-and-retention.md) | 13, 15, 16, 17, 18 | Done | Open evidence revocation, interrupted deletion recovery and redacted audit attribution passed. See [Feature 19 evidence](#feature-19-evidence). |
 | 20 | [Deployment and recovery](feature-specs/20-operability-and-delivery.md) | 12, 14, 15, 19 | Done | The local restore, worker crash and model outage checks passed. See [Feature 20 evidence](#feature-20-evidence). |
 | 21 | [Accessibility and visual verification](feature-specs/21-accessibility-and-visual-qa.md) | 18, 19 | Done | Keyboard edit and recovery, four viewport widths and 200% zoom passed. See [Feature 21 evidence](#feature-21-evidence). |
-| 22 | [Full release evidence](feature-specs/22-release-evidence.md) | 16, 17, 18, 19, 20, 21 | Pending | — |
+| 22 | [Full release evidence](feature-specs/22-release-evidence.md) | 16, 17, 18, 19, 20, 21 | Blocked | Local search and audit gates passed. Live provider and staging checks remain open. See [remediation evidence](#feature-22-remediation) and the [release issues](current-issues.md#feature-22-release-verification). |
 
 **Groq provider update** — Done for Features 09, 11 and 16. Synthetic requests passed against live Groq. See [verification](#groq-provider-verification).
 
@@ -447,3 +447,34 @@ Verified on 2026-11-24 using synthetic inputs against live Groq and through Chro
 | `pnpm test:e2e --project=briefs --no-deps --workers=1` with and without `TEST_GROQ_BRIEFS=1` | Both fixture variants passed after the deadline schema fix. All 20 Vitest tests, type checks, lint, formatting and build also passed. |
 
 Configuring `GROQ_API_KEY` selects Groq for brief extraction, cited search and timestamped transcription. The API and worker use the local search index in Groq mode. See the [Groq setup](../README.md#groq-ai).
+
+## Feature 22 evidence
+
+Verified on 2026-11-24 against application revision `7398afb717caecd91ca8e2e6c7f42254235dcbff`. The [release evidence](evidence/feature-22/README.md) documents the workload, expected and observed journey outcomes, command lines and staging gaps.
+
+| Check | Result |
+|---|---|
+| `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm build`, `git diff --check` | Passed. All 21 Vitest tests passed, including the five deterministic schedule cases. The web build reported the existing Zod and entry-chunk warnings. |
+| `pnpm test:e2e --workers=3 --trace=on --output=test-results/feature-22-journeys-final` | All 27 Chromium tests passed with isolated Compose services and loopback providers. Includes the accessibility journey at four viewport widths and 200% browser zoom. |
+| `pnpm test:recovery --output=test-results/feature-22-recovery` | Passed. RPO 0.302 seconds, RTO 10.515 seconds and worker catch-up 1.90 seconds. |
+| `pnpm test:release:extraction` | Scored 30 synthetic briefs and 30 synthetic meeting excerpts. The loopback brief contract and grounding cases passed. Meeting rules matched 50/60 tasks, 30/35 owners, 30/30 dates and 0/30 dependencies. |
+| Release search load | Reconciled 100,000 indexed sources and 120,000 chunks in the primary workspace plus 5,440 sources and 6,522 chunks across nine neighbors. The 1,000-request run returned 998 HTTP 503 errors. Ingress p95 on the two successful responses was 1,491 ms against a target below one second. |
+| Search relevance | All 20 exact-ID API requests returned results. All 80 keyword and paraphrase API requests timed out. The SQL ranking diagnostic returned a labeled top-five hit for 60/100 lexical and exact, 80/100 vector and 100/100 combined queries with synthetic embeddings. |
+| Isolation at release scale | Ten of eleven access probes passed with zero unauthorized outputs or writes in the completed probes. A warmed workspace-wide hybrid request returned HTTP 503 after revocation and remains inconclusive. |
+| Audit reconciliation | 44/79 durable operation records fully linked. All 20 approved commands linked, including GitHub commands. The audit missed risk evaluation outcomes, weekly captures and one GitHub retry. |
+
+The initial run identified search, audit and staging gaps. See the [remediation results](#feature-22-remediation) below.
+
+## Feature 22 remediation
+
+The working tree adds scoped search optimizations and durable audit outcomes. See the [release report](evidence/feature-22/README.md#remediation-results) for the baseline, device and database versions, latency split, and reproduction commands.
+
+| Check | Result |
+|---|---|
+| Release-scale benchmark after a local PostgreSQL restore | All 1,000 requests returned ranked results in under one second. Ingress p50 was 199 ms, p95 was 353 ms, and p99 was 436 ms. All 100 labeled combined searches matched in the top five. All eleven isolation probes passed, with zero unauthorized outputs or writes observed. |
+| Browser journeys and audit reconciliation | All 27 Chromium tests passed with loopback providers. The fixture reconciled 140/140 operation records, including 17 risk evaluations, 84 weekly captures and all four GitHub attempts. |
+| Populated upgrade | The migrations preserved the fixture workspace and work, backfilled its existing embedding, denied raw vector reads to the runtime role, and removed the compact vector after clearing or deleting the chunk. A repeat migration and schema generation passed. |
+| Fresh final-schema regression | On 2026-11-25, forecast, risks, GitHub, search, project health and retention all passed. The focused audit linked 34/34 records. The final local recovery drill measured an 11.161-second RTO, 0.594-second RPO and 1.90-second worker catch-up. |
+| Static and unit checks | Type checks, lint, formatting, 21 Vitest tests, web build and diff checks passed. The web build emitted the existing Zod and entry-chunk warnings. |
+
+Feature 22 remains blocked on the designated provider test accounts and staging environment. Use the [release issues](current-issues.md#feature-22-release-verification) to resume the live search and extraction checks, connected journeys, and timed staging restore.

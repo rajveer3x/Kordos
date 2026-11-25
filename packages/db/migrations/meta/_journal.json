@@ -134,6 +134,41 @@
       "when": 1795502511569,
       "tag": "0018_operations",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795502511570,
+      "tag": "0019_search_latency",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1795502511571,
+      "tag": "0020_operation_audit",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1795538640282,
+      "tag": "0021_search_vector_storage",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1795538640283,
+      "tag": "0022_report_capture_contention",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1795538640284,
+      "tag": "0023_search_pending_scope",
+      "breakpoints": true
     }
   ]
 }

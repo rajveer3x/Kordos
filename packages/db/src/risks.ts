@@ -45,16 +45,26 @@ export function risksStore(client: Sql) {
   const scoped = databaseScope(client);
   return {
     pending: () => client<RiskJob[]>`SELECT * FROM kordos_risks.pending()`,
-    process({ id, actor, workspace }: RiskJob) {
-      return scoped(actor, workspace, async (sql) => {
+    async process({ id, actor, workspace }: RiskJob) {
+      const failure = await scoped(actor, workspace, async (sql) => {
         const [row] = await sql`SELECT kordos_risks.lock_job(${id}) AS value`;
         if (!row?.value) return;
-        const source = riskSourceSchema.parse(row.value);
-        const outcome = await evaluate(sql, workspace, source);
-        if (!outcome) throw new Error("Risk schedule was unavailable.");
-        await sql`SELECT kordos_risks.finish_job(${id}, ${JSON.stringify(outcome.snapshot)}::text::jsonb,
-          ${outcome.assessment ? JSON.stringify(outcome.assessment) : null}::text::jsonb)`;
+        let inputRevision: string | null = null;
+        return sql
+          .savepoint(async (attempt) => {
+            const source = riskSourceSchema.parse(row.value);
+            const outcome = await evaluate(attempt, workspace, source);
+            if (!outcome) throw new Error("Risk schedule was unavailable.");
+            inputRevision = outcome.snapshot?.inputRevision ?? null;
+            await attempt`SELECT kordos_risks.finish_job(${id}, ${JSON.stringify(outcome.snapshot)}::text::jsonb,
+              ${outcome.assessment ? JSON.stringify(outcome.assessment) : null}::text::jsonb)`;
+          })
+          .catch(async (error: unknown) => {
+            await sql`SELECT kordos_risks.fail_job(${id}, ${inputRevision})`;
+            return { error };
+          });
       });
+      if (failure) throw failure.error;
     },
     list(
       [actor, workspace]: Scope,

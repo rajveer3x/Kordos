@@ -1852,6 +1852,25 @@ export const searchChunks = pgTable(
   ],
 );
 
+export const searchVectors = pgTable(
+  "search_vectors",
+  {
+    chunkId: uuid("chunk_id")
+      .primaryKey()
+      .references(() => searchChunks.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    kind: searchKind().notNull(),
+    ownerId: uuid("owner_id"),
+    attributedDate: date("attributed_date"),
+    model: text().notNull(),
+    embedding: vector({ dimensions: searchEmbeddingDimensions }).notNull(),
+  },
+  (t) => [
+    index("search_vectors_scope_idx").on(t.workspaceId, t.model, t.projectId),
+  ],
+);
+
 export const projectWeeklies = pgTable(
   "project_weeklies",
   {

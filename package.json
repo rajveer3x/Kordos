@@ -17,7 +17,9 @@
     "format:check": "prettier --check apps packages tests 'infra/**/*.mjs' .github/workflows compose.yaml *.json *.yaml *.config.* README.md",
     "test": "vitest run",
     "test:e2e": "node --env-file-if-exists=.env ./node_modules/@playwright/test/cli.js test",
-    "test:recovery": "playwright test --config playwright.recovery.config.ts"
+    "test:recovery": "playwright test --config playwright.recovery.config.ts",
+    "test:release": "node ./node_modules/@playwright/test/cli.js test --config playwright.release.config.ts",
+    "test:release:extraction": "tsx tests/release/extraction.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

@@ -65,8 +65,8 @@ export function connectHealthWorker(url: string) {
     connection: { statement_timeout: 5000 },
   });
   return {
-    captureNext: () =>
-      client.begin(async (sql) => {
+    async captureNext() {
+      const result = await client.begin(async (sql) => {
         const [job] = await sql<
           { workspace: string; project: string; actor: string }[]
         >`
@@ -75,13 +75,29 @@ export function connectHealthWorker(url: string) {
         if (!job) return false;
         const { workspace, project, actor } = job;
         await setDatabaseScope(sql, actor, workspace);
-        const schedule = await readSchedule(sql, workspace, project);
-        if (schedule && !schedule.archived) {
-          const snapshot = weeklySchedule(schedule);
-          await sql`SELECT kordos_health.save_report(${project},${JSON.stringify(snapshot)}::text::jsonb)`;
-        }
-        return true;
-      }),
+        let evidence: { inputRevision: string; graphVersion: number } | null =
+          null;
+        return sql
+          .savepoint(async (attempt) => {
+            const schedule = await readSchedule(attempt, workspace, project);
+            if (schedule && !schedule.archived) {
+              const { inputRevision, graphVersion } = schedule;
+              evidence = { inputRevision, graphVersion };
+              const snapshot = weeklySchedule(schedule);
+              await attempt`SELECT kordos_health.save_report(${project},${JSON.stringify(snapshot)}::text::jsonb)`;
+            } else {
+              await attempt`SELECT kordos_health.record_run(${project},'skipped',NULL)`;
+            }
+            return true;
+          })
+          .catch(async (error: unknown) => {
+            await sql`SELECT kordos_health.record_run(${project},'failed',${JSON.stringify(evidence)}::text::jsonb)`;
+            return { error };
+          });
+      });
+      if (typeof result !== "boolean") throw result.error;
+      return result;
+    },
     close: () => client.end({ timeout: 3 }),
   };
 }

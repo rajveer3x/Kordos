@@ -42,4 +42,19 @@ SELECT id AS receipt_id, installation_id, mapping_id, kind, state, attempts, cre
 FROM public.connector_jobs
 WHERE workspace_id = :'workspace'::uuid AND id = :'ref'::uuid;
 
+SELECT a.id AS audit_id, a.project_id, a.actor_id, a.target_id, a.action,
+       a.created_at, evidence->>'outcome' AS outcome,
+       evidence->>'sourceId' AS source_id, evidence->>'sourceVersion' AS source_version,
+       evidence->>'sourceEventId' AS source_event_id, evidence->>'findingId' AS finding_id,
+       evidence->>'inputRevision' AS input_revision, evidence->>'period' AS report_period,
+       evidence->>'capturedAt' AS captured_at, evidence->>'receiptId' AS receipt_id,
+       evidence->>'revision' AS approved_revision, evidence->>'attempt' AS attempt,
+       evidence->>'outcomeAuditId' AS outcome_audit_id
+FROM public.audit_events a CROSS JOIN LATERAL (SELECT a.details->'after' AS evidence) d
+WHERE a.workspace_id = :'workspace'::uuid AND a.action LIKE 'ops.%'
+  AND (:'ref'::uuid IN (a.id,a.target_id) OR :'ref' IN (
+    evidence->>'sourceId',evidence->>'sourceEventId',evidence->>'findingId',
+    evidence->>'receiptId',evidence->>'outcomeAuditId'))
+ORDER BY a.created_at,a.id;
+
 COMMIT;
