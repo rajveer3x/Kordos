@@ -733,6 +733,9 @@ function RecordingUpload({
         setFile(undefined);
         void client.invalidateQueries({ queryKey: key });
       } else {
+        attempt.current = null;
+        if (xhr.status === 409)
+          void client.invalidateQueries({ queryKey: key });
         let message = "Could not upload the recording. Try again.";
         try {
           const value: unknown = JSON.parse(xhr.responseText);
@@ -750,6 +753,7 @@ function RecordingUpload({
       }
     };
     xhr.onerror = () => {
+      attempt.current = null;
       setProgress(undefined);
       setError("The upload was interrupted. Try again.");
     };

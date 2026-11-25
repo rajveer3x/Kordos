@@ -169,6 +169,27 @@
       "when": 1795538640284,
       "tag": "0023_search_pending_scope",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1795629025888,
+      "tag": "0024_upload_reservation_cleanup",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1795630361597,
+      "tag": "0025_search_embedding_deferral",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1795633011000,
+      "tag": "0026_search_mode_vectors",
+      "breakpoints": true
     }
   ]
 }

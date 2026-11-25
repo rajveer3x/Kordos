@@ -56,6 +56,15 @@ const reserve = `
   return count
 `;
 
+export class ModelQuotaError extends Error {
+  constructor(
+    readonly outcome: "limited" | "unavailable",
+    readonly retryAfterSeconds: number,
+  ) {
+    super("Model request quota is unavailable or exhausted.");
+  }
+}
+
 export function modelOperations(
   redis: {
     eval(
@@ -67,40 +76,50 @@ export function modelOperations(
   },
   settings: Settings,
 ) {
+  async function reserveQuota(scope: Scope, operation: Operation) {
+    const index = operation === "index_embedding";
+    const bucket = index ? "index" : "interactive";
+    const limit = index
+      ? settings.MODEL_INDEX_DAILY_LIMIT
+      : settings.MODEL_INTERACTIVE_DAILY_LIMIT;
+    const used = await redis
+      .eval(
+        reserve,
+        1,
+        `kordos:model-quota:${scope.workspaceId}:${bucket}`,
+        limit,
+      )
+      .catch(() => undefined);
+    const outcome: "allowed" | "limited" | "unavailable" = !Number.isInteger(
+      used,
+    )
+      ? "unavailable"
+      : used === 0
+        ? "limited"
+        : "allowed";
+    console.info(
+      JSON.stringify({
+        event: "model.quota",
+        workspaceId: scope.workspaceId,
+        operationId: scope.operationId,
+        operation,
+        bucket,
+        limit,
+        used,
+        outcome,
+      }),
+    );
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    const retryAfterSeconds =
+      outcome === "limited" ? Math.max(60, 86400 - (nowSeconds % 86400)) : 60;
+    return { allowed: outcome === "allowed", outcome, retryAfterSeconds };
+  }
+
   return {
     prices: settings.MODEL_PRICES_USD,
+    reserve: reserveQuota,
     async authorize(scope: Scope, operation: Operation) {
-      const index = operation === "index_embedding";
-      const bucket = index ? "index" : "interactive";
-      const limit = index
-        ? settings.MODEL_INDEX_DAILY_LIMIT
-        : settings.MODEL_INTERACTIVE_DAILY_LIMIT;
-      const used = await redis
-        .eval(
-          reserve,
-          1,
-          `kordos:model-quota:${scope.workspaceId}:${bucket}`,
-          limit,
-        )
-        .catch(() => undefined);
-      const outcome = !Number.isInteger(used)
-        ? "unavailable"
-        : used === 0
-          ? "limited"
-          : "allowed";
-      console.info(
-        JSON.stringify({
-          event: "model.quota",
-          workspaceId: scope.workspaceId,
-          operationId: scope.operationId,
-          operation,
-          bucket,
-          limit,
-          used,
-          outcome,
-        }),
-      );
-      return outcome === "allowed";
+      return (await reserveQuota(scope, operation)).allowed;
     },
   };
 }
@@ -138,8 +157,12 @@ export async function requestModel(
   init: RequestInit,
 ): Promise<unknown> {
   const active = context.getStore();
-  if (active && !(await active.meter.authorize(active, active.operation)))
-    throw new Error("Model request quota is unavailable or exhausted.");
+  if (active) {
+    const decision = await active.meter.reserve(active, active.operation);
+    if (!decision.allowed && decision.outcome !== "allowed") {
+      throw new ModelQuotaError(decision.outcome, decision.retryAfterSeconds);
+    }
+  }
 
   const start = performance.now();
   let status: number | undefined;

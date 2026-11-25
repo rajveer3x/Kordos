@@ -5,6 +5,7 @@ import {
 import { z } from "zod";
 import { requestModel } from "./operations.js";
 export {
+  ModelQuotaError,
   modelOperations,
   modelOperationsEnv,
   requestModel,

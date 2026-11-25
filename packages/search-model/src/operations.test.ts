@@ -1,5 +1,6 @@
 import { expect, test, vi } from "vitest";
 import {
+  ModelQuotaError,
   modelOperations,
   requestModel,
   withModelOperation,
@@ -47,7 +48,13 @@ test("meters provider calls with usage and estimated cost while keeping payloads
 
   try {
     await run();
-    await expect(run()).rejects.toThrow("Model request quota");
+    const failure = await run().catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(ModelQuotaError);
+    expect(failure).toMatchObject({
+      message: "Model request quota is unavailable or exhausted.",
+      outcome: "limited",
+      retryAfterSeconds: expect.any(Number),
+    });
     expect(request).toHaveBeenCalledTimes(1);
     expect(reserve).toHaveBeenCalledWith(
       expect.any(String),

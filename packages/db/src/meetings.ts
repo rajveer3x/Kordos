@@ -82,6 +82,16 @@ export function meetingsStore(client: Sql) {
         return row!.value;
       });
     },
+    abortUpload(
+      actor: string,
+      { workspaceId, projectId }: Scope,
+      id: string,
+      mutationId: string,
+    ) {
+      return scoped(actor, workspaceId, async (sql) => {
+        await sql`SELECT kordos_meetings.abort_upload(${projectId},${id},${mutationId})`;
+      });
+    },
     audio(
       actor: string,
       { workspaceId, projectId }: Scope,
@@ -131,6 +141,13 @@ export function connectMeetingWorker(url: string) {
       >`SELECT * FROM kordos_meetings.cleanup()`,
     async cleaned(id: string) {
       await sql`SELECT kordos_meetings.cleaned(${id})`;
+    },
+    cleanupAttachments: () =>
+      sql<
+        { id: string; key: string }[]
+      >`SELECT * FROM kordos_knowledge.cleanup()`,
+    async cleanedAttachment(id: string) {
+      await sql`SELECT kordos_knowledge.cleaned(${id})`;
     },
     close: () => sql.end({ timeout: 3 }),
   };

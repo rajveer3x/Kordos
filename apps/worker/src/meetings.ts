@@ -133,16 +133,26 @@ export function startMeetings(
       ) {
         lastCleanup = Date.now();
         cleaning = (async () => {
-          const due = await db.cleanup();
-          await Promise.all(
-            due.map(async ({ id, key }) => {
+          const [dueMedia, dueAttachments] = await Promise.all([
+            db.cleanup(),
+            db.cleanupAttachments(),
+          ]);
+          await Promise.all([
+            ...dueMedia.map(async ({ id, key }) => {
               await storage.client.send(
                 new DeleteObjectCommand({ Bucket: storage.bucket, Key: key }),
                 { abortSignal: AbortSignal.timeout(15000) },
               );
               await db.cleaned(id);
             }),
-          );
+            ...dueAttachments.map(async ({ id, key }) => {
+              await storage.client.send(
+                new DeleteObjectCommand({ Bucket: storage.bucket, Key: key }),
+                { abortSignal: AbortSignal.timeout(15000) },
+              );
+              await db.cleanedAttachment(id);
+            }),
+          ]);
         })()
           .catch(() =>
             console.error("[worker] Meeting media cleanup will retry."),

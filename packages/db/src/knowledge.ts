@@ -126,5 +126,15 @@ export function knowledgeStore(client: Sql) {
         return row!.value;
       });
     },
+    abortUpload(
+      actor: string,
+      { workspaceId, projectId }: Scope,
+      document: string,
+      mutationId: string,
+    ) {
+      return scoped(actor, workspaceId, async (sql) => {
+        await sql`SELECT kordos_knowledge.abort_upload(${projectId}, ${document}, ${mutationId})`;
+      });
+    },
   };
 }

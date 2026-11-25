@@ -238,15 +238,22 @@ export function registerMeetings(
           return reply.code(202).send(saved(reserved));
         if (!reserved.key)
           throw new Error("Meeting audio reservation has no storage key.");
-        await storage.send(
-          new PutObjectCommand({
-            Bucket: bucket,
-            Key: reserved.key,
-            Body: body,
-            ContentType: meetingAudioTypes[input.extension],
-          }),
-          { abortSignal: AbortSignal.timeout(20000) },
-        );
+        try {
+          await storage.send(
+            new PutObjectCommand({
+              Bucket: bucket,
+              Key: reserved.key,
+              Body: body,
+              ContentType: meetingAudioTypes[input.extension],
+            }),
+            { abortSignal: AbortSignal.timeout(20000) },
+          );
+        } catch (error) {
+          await db
+            .abortUpload(actor, target, target.id, input.mutationId)
+            .catch(() => {});
+          throw error;
+        }
         const response = saved(
           await db.upload(actor, target, target.id, upload, true),
         );

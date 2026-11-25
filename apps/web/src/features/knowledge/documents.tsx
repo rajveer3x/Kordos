@@ -623,11 +623,11 @@ function Attachments({
       });
       await client.invalidateQueries({ queryKey: key });
       if (input.current) input.current.value = "";
-      mutation.current = crypto.randomUUID();
       setMessage("Attachment uploaded.");
     } catch (failure) {
       setError(errorMessage(failure));
     } finally {
+      mutation.current = crypto.randomUUID();
       pending.current = false;
       setBusy(false);
     }

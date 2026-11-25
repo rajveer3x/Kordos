@@ -639,6 +639,8 @@ export const documentAttachments = pgTable(
       .notNull()
       .defaultNow(),
     readyAt: timestamp("ready_at", { withTimezone: true }),
+    removedAt: timestamp("removed_at", { withTimezone: true }),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (t) => [
     unique("document_attachments_mutation_unique").on(
@@ -651,6 +653,9 @@ export const documentAttachments = pgTable(
       t.projectId,
       t.documentId,
     ),
+    index("document_attachments_cleanup_idx")
+      .on(t.createdAt, t.id)
+      .where(sql`${t.readyAt} IS NULL AND ${t.deletedAt} IS NULL`),
     foreignKey({
       name: "document_attachments_document_fk",
       columns: [t.workspaceId, t.projectId, t.documentId],
@@ -1848,6 +1853,9 @@ export const searchChunks = pgTable(
     index("search_chunk_exact_idx").using("gin", t.exactIds),
     index("search_chunk_embedding_queue_idx")
       .on(t.model, t.embedAfter, t.id)
+      .where(sql`${t.audience} = 'project'`),
+    index("search_chunk_embedding_workspace_idx")
+      .on(t.workspaceId, t.model, t.embedAfter, t.id)
       .where(sql`${t.audience} = 'project'`),
   ],
 );

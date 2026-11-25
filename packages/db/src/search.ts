@@ -62,15 +62,25 @@ export function connectSearchWorker(url: string) {
       `;
       return row?.count ?? 0;
     },
-    async claim(model: string) {
+    async claim(model: string, skip: string[] = []) {
       const lease = randomUUID();
       const chunks = await sql<
         { id: string; workspaceId: string; title: string; passage: string }[]
       >`
         SELECT id, workspace_id AS "workspaceId", title, passage
-        FROM kordos_ops.claim_embeddings(${model}, ${lease})
+        FROM kordos_ops.claim_embeddings(${model}, ${lease}, ${sql.array(skip, 2950)})
       `;
       return { lease, chunks };
+    },
+    async defer(
+      lease: string,
+      workspaceId: string,
+      model: string,
+      seconds: number,
+    ) {
+      await sql`
+        SELECT kordos_search.defer_embeddings(${lease}, ${workspaceId}, ${model}, ${seconds})
+      `;
     },
     async finish(
       model: string,

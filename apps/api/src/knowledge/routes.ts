@@ -188,15 +188,22 @@ export function registerKnowledge(
       };
       const prepared = await db.upload(actor, where, where.id, input, false);
       if (prepared.result !== "pending") return written(prepared);
-      await storage.send(
-        new PutObjectCommand({
-          Bucket: bucket,
-          Key: prepared.key,
-          Body: body,
-          ContentType: "application/octet-stream",
-        }),
-        { abortSignal: AbortSignal.timeout(20_000) },
-      );
+      try {
+        await storage.send(
+          new PutObjectCommand({
+            Bucket: bucket,
+            Key: prepared.key,
+            Body: body,
+            ContentType: "application/octet-stream",
+          }),
+          { abortSignal: AbortSignal.timeout(20_000) },
+        );
+      } catch (error) {
+        await db
+          .abortUpload(actor, where, where.id, fields.mutationId)
+          .catch(() => {});
+        throw error;
+      }
       const finished = await db.upload(actor, where, where.id, input, true);
       if (finished.result === "pending")
         throw new Error("Attachment was not published.");
